@@ -1,17 +1,15 @@
 package models
 
-
-import "time"
 // Message struct for requesting data from server
-type Message struct {
-	RequestType string
-	Payload     string
+type Request struct {
+	RequestType string      `json:"requesttype"`
+	Message     interface{} `json:"message"`
 }
 
 // Story is the posting data type
 type Story struct {
 	ID    int32  `json:"id"`
-	Rank  int32  `json:"score"`
+	Score int32  `json:"score"`
 	Title string `json:"title"`
 	By    string `json:"by"`
 	Time  int32  `json:"time"`
@@ -19,20 +17,20 @@ type Story struct {
 	Type  string `json:"type"`
 }
 
-// This structure represents all the possible fields
+// Item is a structure represents all the possible fields
 type Item struct {
-	ID           int32
-	Deleted      bool
-	Type         string
-	By           string
-	PublishedAt time.Time
-	Text         string
-	Dead         bool
-	Parent       int32
-	Poll         int32
-	Kids         int32
-	URL          string
-	Score        int32
-	Parts        []string
-	Descendants  int32
+	ID          int32    `json:"id"`
+	Deleted     bool     `json:"deleted,omitempty"`
+	Type        string   `json:"type,omitempty"`
+	By          string   `json:"by,omitempty"`
+	Time        int32    `json:"time,omitempty"`
+	Text        string   `json:"text,omitempty"`
+	Dead        bool     `json:"dead,omitempty"`
+	Parent      int32    `json:"parent,omitempty"`
+	Poll        int32    `json:"poll,omitempty"`
+	Kids        []int32  `json:"kids,omitempty"`
+	URL         string   `json:"url,omitempty"`
+	Score       int32    `json:"score,omitempty"`
+	Parts       []string `json:"parts,omitempty"`
+	Descendants int32    `json:"descendants,omitempty"`
 }
