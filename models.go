@@ -2,8 +2,8 @@ package models
 
 // Message struct for requesting data from server
 type Request struct {
-	RequestType string      `json:"requesttype"`
-	Message     interface{} `json:"message"`
+	RequestType string `json:"requesttype"`
+	Payload     string `json:"payload"`
 }
 
 // Story is the posting data type
