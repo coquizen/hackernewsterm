@@ -1,5 +1,7 @@
 package models
 
+import "net/url"
+
 // Message struct for requesting data from server
 type Request struct {
 	RequestType string `json:"requesttype"`
@@ -25,11 +27,12 @@ type Item struct {
 	By          string   `json:"by,omitempty"`
 	Time        int32    `json:"time,omitempty"`
 	Text        string   `json:"text,omitempty"`
+	Title		string   `json:"title,omitempty"`
 	Dead        bool     `json:"dead,omitempty"`
 	Parent      int32    `json:"parent,omitempty"`
 	Poll        int32    `json:"poll,omitempty"`
 	Kids        []int32  `json:"kids,omitempty"`
-	URL         string   `json:"url,omitempty"`
+	URL         url.URL  `json:"url,omitempty"`
 	Score       int32    `json:"score,omitempty"`
 	Parts       []string `json:"parts,omitempty"`
 	Descendants int32    `json:"descendants,omitempty"`

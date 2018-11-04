@@ -1,48 +1,45 @@
 package main
 
 import (
-	"log"
-	"net/url"
+	"github.com/rivo/tview"
 
+	"github.com/caninodev/hackernewsterm/hackernews"
 	. "github.com/caninodev/hackernewsterm/models"
-	"github.com/gorilla/websocket"
 )
 
-var item Item
-var items []Item
+var (
+	app *tview.Application
+)
+
+var fb = hackernews.NewHAPI(false, nil)
+
+type ui struct {
+	list *tview.List
+}
+
 func main() {
-	uAddr := url.URL{Scheme: "ws", Host: "localhost:8000", Path: "/"}
-	log.Printf("connecting to %s:", uAddr.String())
+	catalog := tview.NewList().ShowSecondaryText(true)
 
-	ws, _, err := websocket.DefaultDialer.Dial(uAddr.String(), nil)
-	if err != nil {
-		log.Fatal("dial:", err)
+
+	requestChan, itemChan := fb.GetItems()
+
+	req := &Request{
+		"top",
+		"10",
 	}
 
-	top := Request{RequestType: "top", Message: nil}
+	requestChan <- req
 
-	if err := ws.WriteJSON(&top); err != nil {
-		log.Printf("error writing to socket: %s", err)
+	defer close(itemChan)
+
+	for item := range itemChan {
+		catalog.AddItem(item.Title, item.By, 0, nil)
 	}
 
-	defer ws.Close()
-
-	for {
-		if err := ws.ReadJSON(&item); err != nil {
-			log.Printf("error reading JSON: %s", err)
-		}
-		items = append(items, item)
-		if err := ws.ReadJSON(&item); err != nil {
-			log.Printf("error reading JSON: %s", err)
-		}
-		items = append(items, item)
-		//_, p, err := ws.ReadMessage()
-		//if err != nil {
-		//	log.Panic(err)
-		//}
-		//if err := json.Unmarshal(p, &item); err != nil {
-		//	log.Panic(err)
-		//}
-		log.Printf("client receieved %#v\n", item)
+	catalog.AddItem("Quit", "Select to Exit", 'q', func() {
+		app.Stop()
+	})
+	if err := tview.NewApplication().SetRoot(catalog, true).Run(); err != nil {
+		panic(err)
 	}
 }

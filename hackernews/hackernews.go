@@ -27,8 +27,8 @@ type HAPI struct {
 	*firego.Firebase
 }
 
-// NewHackerNewsAPI provides an interface to HN's FireBase
-func NewHackerNewsAPI(hasHTTPClient bool, client *http.Client) *HAPI {
+// NewHAPI provides an interface to HN's FireBase
+func NewHAPI(hasHTTPClient bool, client *http.Client) *HAPI {
 	if hasHTTPClient == true {
 		if client == nil {
 			client = http.DefaultClient
@@ -43,7 +43,7 @@ func NewHackerNewsAPI(hasHTTPClient bool, client *http.Client) *HAPI {
 }
 
 func (api *HAPI) GetItem(id int) (*Item, error) {
-	ref, err := api.Ref(fmt.Sprintf("/item/%d", id))
+	ref, err := api.Ref(fmt.Sprintf(version + "/item/%d", id))
 	if err != nil {
 		log.Fatalf("request story reference failed @ reference: %s", err)
 	}
@@ -59,6 +59,7 @@ func (api *HAPI) GetItem(id int) (*Item, error) {
 		value.By,
 		value.Time,
 		value.Text,
+		value.Title,
 		value.Dead,
 		value.Parent,
 		value.Poll,
@@ -70,31 +71,52 @@ func (api *HAPI) GetItem(id int) (*Item, error) {
 	}, nil
 }
 
+// GetItems is a aggregate function for the top-level endpoints as specified
+// above.
 func (api *HAPI) GetItems() (requestChan chan *Request, itemChan chan *Item) {
 	requestChan = make(chan *Request)
 	itemChan = make(chan *Item)
 
 	go func() {
 		for {
-			requestType := <-requestChan
-			ref, err := api.Firebase.Ref(endPoint[requestType])
+			req := <-requestChan
+			ref, err := api.Firebase.Ref(endPoint[req.RequestType])
 			if err != nil {
 				log.Fatal("error firebase reference")
 			}
 			var ids []int
 			if err := ref.Value(&ids); err != nil {
-				log.Printf("%s stories request failed", reqType)
+				log.Printf("%s stories request failed", req.RequestType)
 			}
+			iter, _ := strconv.Atoi(req.Payload)
+			ids = ids[:iter]
 			for _, id := range ids {
 				go func(id int) {
-					item, err := api.GetItem(id)
-					if err != nil {
-						log.Printf("#%d error: %s", id, err)
-					}
+					item, _ := api.GetItem(id)
 					itemChan <- item
+
 				}(int(id))
 			}
 		}
 	}()
 	return requestChan, itemChan
 }
+
+
+func main() {
+	fb := NewHAPI(false, nil)
+	req := &Request{
+		"top",
+		"",
+	}
+	requestChan, itemChan := fb.GetItems()
+	requestChan <- req
+	defer close(itemChan)
+	for item := range itemChan {
+		fmt.Printf("item: %v", item)
+	}
+	//go dispatcher(req, requestChan, itemChan)
+}
+
+
+
