@@ -1,6 +1,9 @@
 package models
 
-import "net/url"
+import (
+	"fmt"
+	"net/url"
+)
 
 // Message struct for requesting data from server
 type Request struct {
@@ -32,8 +35,22 @@ type Item struct {
 	Parent      int32    `json:"parent,omitempty"`
 	Poll        int32    `json:"poll,omitempty"`
 	Kids        []int32  `json:"kids,omitempty"`
-	URL         url.URL  `json:"url,omitempty"`
+	URL         JSONURL  `json:"url,string,omitempty"`
 	Score       int32    `json:"score,omitempty"`
 	Parts       []string `json:"parts,omitempty"`
 	Descendants int32    `json:"descendants,omitempty"`
+}
+
+// JSONURL is a helper interface for use with custom data type in struct
+type JSONURL struct {
+	*url.URL
+}
+
+func (j *JSONURL) UnmarshalJSON(b []byte) error {
+	// Strip off the surrounding quotes and add a domain, one reason you might want a custom type
+	url, err := url.Parse(fmt.Sprintf("http://www.afulldomain.com/%s", b[1:len(b)-1]))
+	if err == nil {
+		j.URL = url
+	}
+	return err
 }

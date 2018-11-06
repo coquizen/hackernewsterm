@@ -52,30 +52,30 @@ func (api *HAPI) GetItem(id int) (*Item, error) {
 		log.Fatalf("story #%d retrieval failed %s", id, err)
 	}
 
-	return &Item{
-		value.ID,
-		value.Deleted,
-		value.Type,
-		value.By,
-		value.Time,
-		value.Text,
-		value.Title,
-		value.Dead,
-		value.Parent,
-		value.Poll,
-		value.Kids,
-		value.URL,
-		value.Score,
-		value.Parts,
-		value.Descendants,
+	return Item{
+		ID:         value.ID,
+		Deleted:    value.Deleted,
+		Type:       value.Type,
+		By:         value.By,
+		Time:       value.Time,
+		Text:       value.Text,
+		Title:	   value.Title,
+		Dead:       value.Dead,
+		Parent:     value.Parent,
+		Poll:       value.Poll,
+		Kids:       value.Kids,
+		URL:		value.URL,
+		Score:      value.Score,
+		Parts:  	value.Parts,
+		Descendants: value.Descendants,
 	}, nil
 }
 
 // GetItems is a aggregate function for the top-level endpoints as specified
 // above.
-func (api *HAPI) GetItems() (requestChan chan *Request, itemChan chan *Item) {
-	requestChan = make(chan *Request)
-	itemChan = make(chan *Item)
+func (api *HAPI) GetItems() (requestChan chan Request, itemChan chan Item) {
+	requestChan = make(chan Request)
+	itemChan = make(chan Item)
 
 	go func() {
 		for {
