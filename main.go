@@ -8,38 +8,43 @@ import (
 )
 
 var (
-	app *tview.Application
+	app            *tview.Application
+	UI             *mainWindow
+	defaultRequest *Request
+	ItemList       *HNList
 )
+
+type mainWindow struct {
+	flex *tview.Flex
+}
+
+type HNList struct {
+	*tview.List
+}
 
 var fb = hackernews.NewHAPI(false, nil)
 
-type ui struct {
-	list *tview.List
-}
-
 func main() {
-	catalog := tview.NewList().ShowSecondaryText(true)
-
-
-	requestChan, itemChan := fb.GetItems()
-
-	req := &Request{
-		"top",
-		"10",
+	app = tview.NewApplication()
+	defaultRequest = &Request{
+		RequestType: "top",
+		Payload: "10",
 	}
 
-	requestChan <- req
+	list := tview.NewList().ShowSecondaryText(true)
+	list.SetBorder(true).SetTitle(defaultRequest.RequestType+" stories")
+	itemChan := fb.GetItems(*defaultRequest)
 
 	defer close(itemChan)
-
-	for item := range itemChan {
-		catalog.AddItem(item.Title, item.By, 0, nil)
-	}
-
-	catalog.AddItem("Quit", "Select to Exit", 'q', func() {
-		app.Stop()
-	})
-	if err := tview.NewApplication().SetRoot(catalog, true).Run(); err != nil {
+	go func() {
+		for item := range itemChan {
+			app.QueueUpdateDraw(func () {
+				list.AddItem(item.Title, item.By, 0, nil)
+			})
+		}
+	}()
+	if err := app.SetRoot(list, true).Run(); err != nil {
 		panic(err)
 	}
+
 }

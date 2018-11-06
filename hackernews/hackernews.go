@@ -75,13 +75,11 @@ func (api *HAPI) GetItem(id int) (Item, error) {
 
 // GetItems is a aggregate function for the top-level endpoints as specified
 // above.
-func (api *HAPI) GetItems() (requestChan chan Request, itemChan chan Item) {
-	requestChan = make(chan Request)
+func (api *HAPI) GetItems(req Request) (itemChan chan Item) {
 	itemChan = make(chan Item)
 
 	go func() {
 		for {
-			req := <-requestChan
 			ref, err := api.Firebase.Ref(endPoint[req.RequestType])
 			if err != nil {
 				log.Fatal("error firebase reference")
@@ -90,8 +88,8 @@ func (api *HAPI) GetItems() (requestChan chan Request, itemChan chan Item) {
 			if err := ref.Value(&ids); err != nil {
 				log.Printf("%s stories request failed", req.RequestType)
 			}
-			iter, _ := strconv.Atoi(req.Payload)
-			ids = ids[:iter]
+			iterator, _ := strconv.Atoi(req.Payload)
+			ids = ids[:iterator]
 			for _, id := range ids {
 				go func(id int) {
 					item, _ := api.GetItem(id)
@@ -101,7 +99,7 @@ func (api *HAPI) GetItems() (requestChan chan Request, itemChan chan Item) {
 			}
 		}
 	}()
-	return requestChan, itemChan
+	return
 }
 
 
