@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strconv"
 
 	. "github.com/caninodev/hackernewsterm/models"
 	"gopkg.in/zabawaba99/firego.v1"
+
 )
 
 const baseURL = "https://hacker-news.firebaseio.com"
@@ -42,7 +44,7 @@ func NewHAPI(hasHTTPClient bool, client *http.Client) *HAPI {
 	}
 }
 
-func (api *HAPI) GetItem(id int) (*Item, error) {
+func (api *HAPI) GetItem(id int) (Item, error) {
 	ref, err := api.Ref(fmt.Sprintf(version + "/item/%d", id))
 	if err != nil {
 		log.Fatalf("request story reference failed @ reference: %s", err)
@@ -100,22 +102,6 @@ func (api *HAPI) GetItems() (requestChan chan Request, itemChan chan Item) {
 		}
 	}()
 	return requestChan, itemChan
-}
-
-
-func main() {
-	fb := NewHAPI(false, nil)
-	req := &Request{
-		"top",
-		"",
-	}
-	requestChan, itemChan := fb.GetItems()
-	requestChan <- req
-	defer close(itemChan)
-	for item := range itemChan {
-		fmt.Printf("item: %v", item)
-	}
-	//go dispatcher(req, requestChan, itemChan)
 }
 
 
