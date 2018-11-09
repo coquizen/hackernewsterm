@@ -30,7 +30,7 @@ type Item struct {
 	By          string   `json:"by,omitempty"`
 	Time        int32    `json:"time,omitempty"`
 	Text        string   `json:"text,omitempty"`
-	Title		string   `json:"title,omitempty"`
+	Title       string   `json:"title,omitempty"`
 	Dead        bool     `json:"dead,omitempty"`
 	Parent      int32    `json:"parent,omitempty"`
 	Poll        int32    `json:"poll,omitempty"`
@@ -46,11 +46,12 @@ type JSONURL struct {
 	*url.URL
 }
 
+// UnmarshalJSON will take a url string and convert to golang friendly URL struct
 func (j *JSONURL) UnmarshalJSON(b []byte) error {
 	// Strip off the surrounding quotes and add a domain, one reason you might want a custom type
-	url, err := url.Parse(fmt.Sprintf("http://www.afulldomain.com/%s", b[1:len(b)-1]))
+	hnurl, err := url.Parse(fmt.Sprintf("http://www.afulldomain.com/%s", b[1:len(b)-1]))
 	if err == nil {
-		j.URL = url
+		j.URL = hnurl
 	}
 	return err
 }

@@ -1,4 +1,4 @@
-// Adapted from https://github.com/easyCZ/grpc-web-hacker-news/blob/master/server/hackernews/api.go
+// Package hackernews is adapted from https://github.com/easyCZ/grpc-web-hacker-news/blob/master/server/hackernews/api.go
 package hackernews
 
 import (
@@ -9,7 +9,6 @@ import (
 
 	. "github.com/caninodev/hackernewsterm/models"
 	"gopkg.in/zabawaba99/firego.v1"
-
 )
 
 const baseURL = "https://hacker-news.firebaseio.com"
@@ -17,14 +16,15 @@ const baseURL = "https://hacker-news.firebaseio.com"
 const version = "/v0"
 
 var endPoint = map[string]string{
-	"top":  version + "/topstories",
-	"new":  version + "/newstories",
-	"best": version + "/beststories",
-	"ask":  version + "/askstories",
-	"jobs": version + "/jobstories",
-	"show": version + "/showstories",
+	"top":  "/v0/topstories",
+	"new":  "/v0/newstories",
+	"best": "/v0/beststories",
+	"ask":  "/v0/askstories",
+	"jobs": "/v0/jobstories",
+	"show": "/v0/showstories",
 }
 
+// HAPI has an embedded struct for the firebase interface
 type HAPI struct {
 	*firego.Firebase
 }
@@ -44,8 +44,9 @@ func NewHAPI(hasHTTPClient bool, client *http.Client) *HAPI {
 	}
 }
 
-func (api *HAPI) GetItem(id int) (Item, error) {
-	ref, err := api.Ref(fmt.Sprintf(version + "/item/%d", id))
+// GetItem retrieves the items details by id
+func (api *HAPI) GetItem(id int) (*Item, error) {
+	ref, err := api.Ref(fmt.Sprintf(version+"/item/%d", id))
 	if err != nil {
 		log.Fatalf("request story reference failed @ reference: %s", err)
 	}
@@ -54,30 +55,29 @@ func (api *HAPI) GetItem(id int) (Item, error) {
 		log.Fatalf("story #%d retrieval failed %s", id, err)
 	}
 
-	return Item{
-		ID:         value.ID,
-		Deleted:    value.Deleted,
-		Type:       value.Type,
-		By:         value.By,
-		Time:       value.Time,
-		Text:       value.Text,
-		Title:	   value.Title,
-		Dead:       value.Dead,
-		Parent:     value.Parent,
-		Poll:       value.Poll,
-		Kids:       value.Kids,
-		URL:		value.URL,
-		Score:      value.Score,
-		Parts:  	value.Parts,
+	return &Item{
+		ID:          value.ID,
+		Deleted:     value.Deleted,
+		Type:        value.Type,
+		By:          value.By,
+		Time:        value.Time,
+		Text:        value.Text,
+		Title:       value.Title,
+		Dead:        value.Dead,
+		Parent:      value.Parent,
+		Poll:        value.Poll,
+		Kids:        value.Kids,
+		URL:         value.URL,
+		Score:       value.Score,
+		Parts:       value.Parts,
 		Descendants: value.Descendants,
 	}, nil
 }
 
 // GetItems is a aggregate function for the top-level endpoints as specified
 // above.
-func (api *HAPI) GetItems(req Request) (itemChan chan Item) {
-	itemChan = make(chan Item)
-
+func (api *HAPI) GetItems(req *Request) (contentChan chan *Item) {
+	contentChan = make(chan *Item)
 	go func() {
 		for {
 			ref, err := api.Firebase.Ref(endPoint[req.RequestType])
@@ -93,14 +93,10 @@ func (api *HAPI) GetItems(req Request) (itemChan chan Item) {
 			for _, id := range ids {
 				go func(id int) {
 					item, _ := api.GetItem(id)
-					itemChan <- item
-
+					contentChan <- item
 				}(int(id))
 			}
 		}
 	}()
 	return
 }
-
-
-
