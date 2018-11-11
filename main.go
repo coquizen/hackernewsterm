@@ -1,8 +1,12 @@
 package main
 
 import (
+	"io/ioutil"
 	"log"
+	"os/exec"
+	"strconv"
 
+	"github.com/gdamore/tcell"
 	"github.com/rivo/tview"
 
 	"github.com/caninodev/hackernewsterm/hackernews"
@@ -26,13 +30,14 @@ type AppState struct {
 
 // Layout contains the root layout for the app
 type Layout struct {
-	*tview.Grid
-	*tview.Flex
+	list    *ListView
+	content *ContentView
 }
 
 var (
 	state          *AppState
 	defaultRequest *Request
+	layout         *Layout
 )
 
 // ListView represents the item selector
@@ -46,25 +51,27 @@ type ContentView struct {
 }
 
 func (ui Views) createLayout() tview.Primitive {
-	layout := new(Layout)
-	(layout.Flex) = tview.NewFlex()
+	arrangement := tview.NewFlex()
 
 	list := &ListView{tview.NewList()}
 	content := &ContentView{tview.NewTextView()}
+	layout = &Layout{
+		list:    list,
+		content: content,
+	}
 
 	defaultRequest = &Request{
 		RequestType: "top",
 		Payload:     "20",
 	}
 
-	layout.Flex.AddItem(tview.Primitive(list), 0, 1, true)
-	layout.Flex.AddItem(tview.Primitive(content), 0, 3, false)
+	arrangement.AddItem(tview.Primitive(list), 0, 1, true)
+	arrangement.AddItem(tview.Primitive(content), 0, 3, false)
 
 	list.populate(defaultRequest)
 
-	(ui.Layout) = layout
+	return tview.Primitive(arrangement)
 
-	return tview.Primitive(layout.Flex)
 }
 
 func (l ListView) populate(reqType *Request) tview.Primitive {
@@ -74,16 +81,40 @@ func (l ListView) populate(reqType *Request) tview.Primitive {
 	stream := state.api.GetItems(defaultRequest)
 
 	go func() {
-		go func() {
-			for item := range stream {
-				state.app.QueueUpdateDraw(func() {
-					l.AddItem(item.Title, item.By, 0, nil)
+		for item := range stream {
+			state.app.QueueUpdateDraw(func() {
+				l.AddItem(item.Title, item.By, 0, func() {
+					layout.content.render(item)
 				})
-			}
-		}()
+			})
+		}
 	}()
-
 	return l
+}
+
+func (c ContentView) render(item *Item) {
+	c.Clear()
+	c.SetBorder(false).SetTitle(item.Title)
+	_, _, numCols, _ := c.GetInnerRect()
+	prsedNumCols := strconv.Itoa(numCols)
+
+	if _, err := exec.LookPath("w3m"); err != nil {
+		c.SetTextColor(tcell.ColorRed).SetText("Please install w3m for full functionality")
+	} else {
+		webCMD := exec.Command("w3m", "-dump", "-cols", "-X", prsedNumCols, item.URL.String())
+		webOutPipe, webErr := webCMD.StdoutPipe()
+		if webErr != nil {
+			log.Print(webErr)
+		}
+		renderedPage, err := ioutil.ReadAll(webOutPipe)
+		if err != nil {
+			log.Print(err)
+		}
+		if _, err := c.Write(renderedPage); err != nil {
+			log.Print(err)
+		}
+	}
+	return
 }
 
 func connectUI(app *tview.Application) error {
