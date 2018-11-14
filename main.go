@@ -1,12 +1,11 @@
 package main
 
 import (
-	"io/ioutil"
+	"fmt"
 	"log"
 	"os/exec"
 	"strconv"
 
-	"github.com/gdamore/tcell"
 	"github.com/rivo/tview"
 
 	"github.com/caninodev/hackernewsterm/hackernews"
@@ -14,9 +13,9 @@ import (
 )
 
 /*
-Views holds reference for all views and renders them
+UI holds reference for all views and renders them
 */
-type Views struct {
+type UI struct {
 	*Layout
 	*AppState
 }
@@ -50,7 +49,7 @@ type ContentView struct {
 	*tview.TextView
 }
 
-func (ui Views) createLayout() tview.Primitive {
+func (ui UI) initUI() tview.Primitive {
 	arrangement := tview.NewFlex()
 
 	list := &ListView{tview.NewList()}
@@ -82,39 +81,30 @@ func (l ListView) populate(reqType *Request) tview.Primitive {
 
 	go func() {
 		for item := range stream {
-			state.app.QueueUpdateDraw(func() {
 				l.AddItem(item.Title, item.By, 0, func() {
 					layout.content.render(item)
-				})
 			})
 		}
 	}()
+	state.app.Draw()
 	return l
 }
 
 func (c ContentView) render(item *Item) {
 	c.Clear()
-	c.SetBorder(false).SetTitle(item.Title)
-	_, _, numCols, _ := c.GetInnerRect()
-	prsedNumCols := strconv.Itoa(numCols)
+	c.SetBorder(false).SetTitle(item.URL)
+	c.SetDynamicColors(true)
+	c.SetChangedFunc(func() {
+		state.app.Draw()
+	})
 
-	if _, err := exec.LookPath("w3m"); err != nil {
-		c.SetTextColor(tcell.ColorRed).SetText("Please install w3m for full functionality")
-	} else {
-		webCMD := exec.Command("w3m", "-dump", "-cols", "-X", prsedNumCols, item.URL.String())
-		webOutPipe, webErr := webCMD.StdoutPipe()
-		if webErr != nil {
-			log.Print(webErr)
-		}
-		renderedPage, err := ioutil.ReadAll(webOutPipe)
-		if err != nil {
-			log.Print(err)
-		}
-		if _, err := c.Write(renderedPage); err != nil {
-			log.Print(err)
-		}
-	}
-	return
+	_, _, numCols, _ := c.GetInnerRect()
+	parsedNumCols := strconv.Itoa(numCols)
+
+	webCMD := exec.Command("w3m", "-dump", "-graph", "-X", "-cols", parsedNumCols, item.URL)
+
+	outr, _ := webCMD.CombinedOutput()
+	fmt.Fprint(c, string(outr))
 }
 
 func connectUI(app *tview.Application) error {
@@ -122,9 +112,9 @@ func connectUI(app *tview.Application) error {
 		app: app,
 		api: hackernews.NewHAPI(false, nil),
 	}
-	mainView := new(Views)
+	mainView := new(UI)
 
-	app.SetRoot(mainView.createLayout(), true)
+	app.SetRoot(mainView.initUI(), true)
 
 	return nil
 }

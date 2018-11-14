@@ -1,10 +1,5 @@
 package models
 
-import (
-	"fmt"
-	"net/url"
-)
-
 // Message struct for requesting data from server
 type Request struct {
 	RequestType string `json:"requesttype"`
@@ -35,23 +30,23 @@ type Item struct {
 	Parent      int32    `json:"parent,omitempty"`
 	Poll        int32    `json:"poll,omitempty"`
 	Kids        []int32  `json:"kids,omitempty"`
-	URL         JSONURL  `json:"url,string,omitempty"`
+	URL         string   `json:"url,omitempty"`
 	Score       int32    `json:"score,omitempty"`
 	Parts       []string `json:"parts,omitempty"`
 	Descendants int32    `json:"descendants,omitempty"`
 }
 
 // JSONURL is a helper interface for use with custom data type in struct
-type JSONURL struct {
-	*url.URL
-}
-
-// UnmarshalJSON will take a url string and convert to golang friendly URL struct
-func (j *JSONURL) UnmarshalJSON(b []byte) error {
-	// Strip off the surrounding quotes and add a domain, one reason you might want a custom type
-	hnurl, err := url.Parse(fmt.Sprintf("http://www.afulldomain.com/%s", b[1:len(b)-1]))
-	if err == nil {
-		j.URL = hnurl
-	}
-	return err
-}
+//type JSONURL struct {
+//	*url.URL
+//}
+//
+//// UnmarshalJSON will take a url string and convert to golang friendly URL struct
+//func (j *JSONURL) UnmarshalJSON(b []byte) error {
+//	// Strip off the surrounding quotes and add a domain, one reason you might want a custom type
+//	hnurl, err := url.Parse(fmt.Sprintf("http://www.afulldomain.com/%s", b[1:len(b)-1]))
+//	if err == nil {
+//		j.URL = hnurl
+//	}
+//	return err
+//}
