@@ -1,6 +1,9 @@
 main
 GoBuild
+hackernewsterm
+.vscode
 
 hn-cli
 hackernewsterm
 server/server
+.idea
