@@ -16,8 +16,14 @@ import (
 UI holds reference for all views and renders them
 */
 type UI struct {
-	*Layout
-	*AppState
+	*GUI
+	Populate func(request Request)
+
+	layout *tview.Flex
+	list *tview.List
+	content *tview.TextView
+	comments *tview.TreeView
+
 }
 
 // AppState connects the backend with the frontend via ContentChannel
@@ -49,7 +55,30 @@ type ContentView struct {
 	*tview.TextView
 }
 
-func (ui UI) initUI() tview.Primitive {
+//
+//type CommentsView struct {
+//	*tview.TreeView
+//}
+
+func (ui *UI) Create() {
+	ui.list = tview.NewList()
+	ui.list.ShowSecondaryText(true)
+
+	ui.content = tview.NewTextview()
+	ui.content.SetDynamicColors(true).
+	 SetBorder(true)
+
+   ui.comments = tview.NewTreeView()
+
+	ui.layout= tview.NewFlex()
+	ui.layout.SetDirection(tview.FlexColumn)
+	ui.layout AddItem(ui.list, 0, 1, true)
+	ui.layout.Additem((tview.NewFlex().
+	SetDirection(tview.FlexRow).
+	AddItem(ui.content, 0, 1, false).
+	AddItem(ui.comments, 0, 1, false)), 0, 3, false)
+
+
 	arrangement := tview.NewFlex()
 
 	list := &ListView{tview.NewList()}
@@ -67,31 +96,31 @@ func (ui UI) initUI() tview.Primitive {
 	arrangement.AddItem(tview.Primitive(list), 0, 1, true)
 	arrangement.AddItem(tview.Primitive(content), 0, 3, false)
 
-	list.populate(defaultRequest)
 
+		list.populate(defaultRequest)
 	return tview.Primitive(arrangement)
 
 }
 
-func (l ListView) populate(reqType *Request) tview.Primitive {
+func (ui *UI) Populate(reqType *Request) tview.Primitive {
 	l.ShowSecondaryText(true)
 	l.SetBorder(true).SetTitle(reqType.RequestType + " stories")
 
 	stream := state.api.GetItems(defaultRequest)
 
-	go func() {
-		for item := range stream {
+	state.app.QueueUpdateDraw(func() {
+		go func() {
+			for item := range stream {
 				l.AddItem(item.Title, item.By, 0, func() {
 					layout.content.render(item)
-			})
-		}
-	}()
-	state.app.Draw()
+				})
+			}
+		}()
+	})
 	return l
 }
 
 func (c ContentView) render(item *Item) {
-	c.Clear()
 	c.SetBorder(false).SetTitle(item.URL)
 	c.SetDynamicColors(true)
 	c.SetChangedFunc(func() {
@@ -123,6 +152,8 @@ func connectUI(app *tview.Application) error {
 func main() {
 	app := tview.NewApplication()
 	err := connectUI(app)
+	state.app.Draw()
+
 	if err != nil {
 		panic(err)
 	}
