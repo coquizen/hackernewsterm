@@ -93,6 +93,7 @@ func (api *HAPI) GetItems(req *Request) (contentChan chan *Item) {
 			for _, id := range ids {
 				go func(id int) {
 					item, _ := api.GetItem(id)
+					log.Printf("#%v:", item)
 					contentChan <- item
 				}(int(id))
 			}
