@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"sync"
 
 	. "github.com/caninodev/hackernewsterm/models"
 	"gopkg.in/zabawaba99/firego.v1"
@@ -14,6 +15,8 @@ import (
 const baseURL = "https://hacker-news.firebaseio.com"
 
 const version = "/v0"
+
+var wg sync.WaitGroup
 
 var endPoint = map[string]string{
 	"top":  "/v0/topstories",
@@ -78,25 +81,23 @@ func (api *HAPI) GetItem(id int) (*Item, error) {
 // above.
 func (api *HAPI) GetItems(req *Request) (contentChan chan *Item) {
 	contentChan = make(chan *Item)
-	go func() {
-		for {
-			ref, err := api.Firebase.Ref(endPoint[req.RequestType])
-			if err != nil {
-				log.Fatal("error firebase reference")
-			}
-			var ids []int
-			if err := ref.Value(&ids); err != nil {
-				log.Printf("%s stories request failed", req.RequestType)
-			}
-			iterator, _ := strconv.Atoi(req.Payload)
-			ids = ids[:iterator]
-			for _, id := range ids {
-				go func(id int) {
-					item, _ := api.GetItem(id)
-					contentChan <- item
-				}(int(id))
-			}
+	for {
+		ref, err := api.Firebase.Ref(endPoint[req.RequestType])
+		if err != nil {
+			log.Fatal("error firebase reference")
 		}
-	}()
-	return
+		var ids []int
+		if err := ref.Value(&ids); err != nil {
+			log.Printf("%s stories request failed", req.RequestType)
+		}
+		iterator, _ := strconv.Atoi(req.Payload)
+		ids = ids[:iterator]
+		for _, id := range ids {
+			go func(id int) {
+				item, _ := api.GetItem(id)
+				contentChan <- item
+			}(int(id))
+		}
+		return contentChan
+	}
 }

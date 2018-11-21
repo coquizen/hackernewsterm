@@ -8,10 +8,10 @@ import (
 )
 
 type myApp struct {
-	main  *tview.Application
-	api   *hackernews.HAPI
+	main *tview.Application
+	api  *hackernews.HAPI
 	//pages *tview.Pages
-	gui   *GUI
+	gui *GUI
 }
 
 var app *myApp
