@@ -67,6 +67,8 @@ func (gui *GUI) KeyHandler(key *tcell.EventKey) *tcell.EventKey {
 
 func (gui *GUI) getPosts(request *hnapi.Request) {
 
+func (gui *GUI) getPosts(request *hnapi.Request) {
+
 	gui.list.SetTitle(request.PostType + " stories")
 
 	idx := 0
@@ -134,7 +136,6 @@ func (gui *GUI) parseHTML(item hnapi.Item) {
 	})
 	app.main.Draw()
 }
-
 // Adapted from github.com/johnshiver/plankton/terminal/treeview.go
 func createAllChildNodes(nodeID int) *tview.TreeNode {
 	var addNode func(id int) *tview.TreeNode
