@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net/url"
 	"os/exec"
@@ -8,14 +9,14 @@ import (
 	"strings"
 	"sync"
 
-	models "github.com/caninodev/hackernewsterm/hnapi"
+	"github.com/caninodev/hackernewsterm/hnapi"
 	"github.com/gdamore/tcell"
 	"github.com/rivo/tview"
 )
 
 var wg = sync.WaitGroup{}
 var (
-	//cache   [50]*models.Item
+	//cache   [50]*hnapi.Item
 	numCols int
 )
 
@@ -39,9 +40,8 @@ func (gui *GUI) Create() {
 	_, _, numCols, _ = gui.content.GetInnerRect()
 
 	gui.comments = tview.NewTreeView()
-	gui.comments.SetBorder(true)
 
-	var defaultRequest = &models.Request{
+	var defaultRequest = &hnapi.Request{
 		PostType: "top",
 		NumPosts: 50,
 	}
@@ -65,40 +65,41 @@ func (gui *GUI) KeyHandler(key *tcell.EventKey) *tcell.EventKey {
 	return key
 }
 
-func (gui *GUI) getPosts(request *models.Request) {
+func (gui *GUI) getPosts(request *hnapi.Request) {
 
 	gui.list.SetTitle(request.PostType + " stories")
 
 	idx := 0
 
 	stream := app.api.GetPosts(request)
-	cache := make([]*models.Item, request.NumPosts)
+	cache := make([]*hnapi.Item, request.NumPosts)
 
 	for item := range stream {
 		cache[idx] = item
 		gui.render(*cache[idx], idx)
 		if idx == 0 {
 			gui.parseHTML(*cache[idx])
+			gui.comments = gui.germinate(cache[idx])
 		}
 		idx++
 	}
 }
 
-func (gui *GUI) render(item models.Item, idx int) {
+func (gui *GUI) render(item hnapi.Item, idx int) {
 	mainString := []string{"[[yellow:b]", strconv.Itoa(idx), "[-:-:-]] ", formatMainText(&item)}
 	mainText := strings.Join(mainString, "")
 	secondaryText := formatSubText(&item)
 	gui.list.AddItem(mainText, secondaryText, rune(idx+1), nil)
 }
 
-func formatMainText(item *models.Item) (mText string) {
+func formatMainText(item *hnapi.Item) (mText string) {
 	addr, _ := url.Parse(item.URL)
 	mainText := []string{"[::b]", item.Title, "[::d]", " (", string(addr.Host), ")"}
 	mText = strings.Join(mainText, "")
 	return mText
 }
 
-func formatSubText(item *models.Item) string {
+func formatSubText(item *hnapi.Item) string {
 	score := strconv.Itoa(item.Score)
 
 	i := item.Score
@@ -118,7 +119,7 @@ func formatSubText(item *models.Item) string {
 	return strings.Join(str, "")
 }
 
-func (gui *GUI) parseHTML(item models.Item) {
+func (gui *GUI) parseHTML(item hnapi.Item) {
 
 	gui.content.SetTitle(item.URL)
 
@@ -134,10 +135,65 @@ func (gui *GUI) parseHTML(item models.Item) {
 	app.main.Draw()
 }
 
-// func (gui *GUI) germinate(item *Item) {
-// 	gui.comments.SetBorder(false)
-// 	rootNode := tview.NewTreeNode("root").
-// 		SetText(item.Text)
+// Adapted from github.com/johnshiver/plankton/terminal/treeview.go
+func createAllChildNodes(nodeID int) *tview.TreeNode {
+	var addNode func(id int) *tview.TreeNode
+	addNode = func(nodeID int) *tview.TreeNode {
+		comment, _ := app.api.GetItem(nodeID)
+		commentText := fmt.Sprintf("[::b]%s[::d] (%d) [-:-:-]--[-:-:-]%s", comment.By, comment.Time, comment.Text)
+		newNode := *tview.NewTreeNode(commentText)
+		for _, childID := range comment.Kids {
+			childComment, _ := app.api.GetItem(childID)
+			cNode := addNode(childComment.ID)
+			newNode.AddChild(cNode)
+		}
+		return &newNode
+	}
+	return addNode(nodeID)
+}
 
-// 	gui.comments.SetRoot(rootNode)
-// }
+func (gui *GUI) germinate(item *hnapi.Item) (tree *tview.TreeView) {
+	for id := range item.Kids {
+		rootComment, _ := app.api.GetItem(id)
+		tree := tview.NewTreeView()
+		rootNode := createAllChildNodes(id)
+		rootNode.SetExpanded(false)
+
+		tree.SetBorder(true).
+			SetTitle(rootComment.By)
+		tree.SetAlign(false).
+			SetTopLevel(0).
+			SetGraphics(true).
+			SetPrefixes(nil)
+
+		var add func(targetNode *tview.TreeNode) *tview.TreeNode
+		add = func(targetNode *tview.TreeNode) *tview.TreeNode {
+			commentText := fmt.Sprintf("[::b]%s[::d] (%d) [-:-:-]--[-:-:-]%s", rootComment.By, rootComment.Time, rootComment.Text)
+			commentNode := tview.NewTreeNode(commentText).
+				SetSelectable(true).
+				SetExpanded(targetNode == rootNode).
+				SetReference(targetNode)
+			if targetNode.IsExpanded() {
+				targetNode.SetColor(tcell.ColorGreen)
+			}
+
+			for _, childNode := range rootNode.GetChildren() {
+				commentNode.AddChild(add(childNode))
+			}
+			return commentNode
+		}
+
+		root := add(rootNode)
+		tree.SetRoot(root).
+			SetCurrentNode(root).
+			SetSelectedFunc(func(n *tview.TreeNode) {
+				original := n.GetReference().(*tview.TreeNode)
+				if original.IsExpanded() {
+					n.SetExpanded(!n.IsExpanded())
+				}
+			})
+		tree.GetRoot().ExpandAll()
+
+	}
+	return tree
+}
