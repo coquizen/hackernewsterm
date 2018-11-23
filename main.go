@@ -3,13 +3,13 @@ package main
 import (
 	"log"
 
-	"github.com/caninodev/hackernewsterm/hackernews"
+	"github.com/caninodev/hackernewsterm/hnapi"
 	"github.com/rivo/tview"
 )
 
 type myApp struct {
 	main *tview.Application
-	api  *hackernews.HAPI
+	api  *hnapi.HNdb
 	//pages *tview.Pages
 	gui *GUI
 }
@@ -18,7 +18,7 @@ var app *myApp
 
 func (a *myApp) initialize() {
 	a.main = tview.NewApplication()
-	a.api = hackernews.NewHAPI(false, nil)
+	a.api = hnapi.New()
 	a.gui = &GUI{}
 
 	a.gui.Create()

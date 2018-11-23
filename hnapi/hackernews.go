@@ -44,6 +44,7 @@ func (db *HNdb) GetItem(id int) (*Item, error) {
 	if err != nil {
 		log.Fatalf("request story reference failed @ reference: %s", err)
 	}
+
 	var value Item
 	if err := ref.Value(&value); err != nil {
 		log.Fatalf("story #%d retrieval failed %s", id, err)
@@ -70,24 +71,26 @@ func (db *HNdb) GetItem(id int) (*Item, error) {
 
 // GetPosts retrieves the specified type and number of posts.
 func (db *HNdb) GetPosts(req *Request) (contentChan chan *Item) {
-	contentChan = make(chan *Item, req.NumPosts)
+	contentChan = make(chan *Item)
 
-	for {
-		ref, err := db.Firebase.Ref(endPoint[req.PostType])
-		if err != nil {
-			log.Fatal("error firebase reference")
-		}
-		var ids []int
-		if err := ref.Value(&ids); err != nil {
-			log.Printf("%s stories request failed", req.PostType)
-		}
+	ref, err := db.Firebase.Ref(endPoint[req.PostType])
+	if err != nil {
+		log.Fatal("error firebase reference")
+	}
 
-		ids = ids[:req.NumPosts]
-		for _, id := range ids {
+	var ids []int
+
+	if err := ref.Value(&ids); err != nil {
+		log.Printf("%s stories request failed", req.PostType)
+	}
+
+	ids = ids[:req.NumPosts]
+
+	for _, id := range ids {
+		go func(id int) {
 			item, _ := db.GetItem(id)
 			contentChan <- item
-		}
-		close(contentChan)
-		return contentChan
+		}(id)
 	}
+	return
 }
