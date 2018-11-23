@@ -1,14 +1,13 @@
-// Package hackernews is adapted from https://github.com/easyCZ/grpc-web-hacker-news/blob/master/server/hackernews/api.go
-package hackernews
+/* HNdb is intended to provide a stripped down interface customized to use specifically with Hacker News firbase.
+It has been adapted from https://github.com/easyCZ/grpc-web-hacker-news/blob/master/server/hackernews/api.go.
+*/
+package hnapi
 
 import (
 	"fmt"
 	"log"
-	"net/http"
-	"strconv"
 	"sync"
 
-	. "github.com/caninodev/hackernewsterm/models"
 	"gopkg.in/zabawaba99/firego.v1"
 )
 
@@ -27,29 +26,21 @@ var endPoint = map[string]string{
 	"show": "/v0/showstories",
 }
 
-// HAPI has an embedded struct for the firebase interface
-type HAPI struct {
+// HNdb has an embedded struct for the firebase interface
+type HNdb struct {
 	*firego.Firebase
 }
 
-// NewHAPI provides an interface to HN's FireBase
-func NewHAPI(hasHTTPClient bool, client *http.Client) *HAPI {
-	if hasHTTPClient == true {
-		if client == nil {
-			client = http.DefaultClient
-		}
-	} else {
-		client = nil
-	}
-	fb := firego.New(baseURL, client)
-	return &HAPI{
-		Firebase: fb,
+// New establishes an API to Hacker New's Firebase.
+func New() *HNdb {
+	return &HNdb{
+		Firebase: firego.New(baseURL, nil),
 	}
 }
 
-// GetItem retrieves the items details by id
-func (api *HAPI) GetItem(id int) (*Item, error) {
-	ref, err := api.Ref(fmt.Sprintf(version+"/item/%d", id))
+// GetItem retrieves the specified item and parses it.
+func (db *HNdb) GetItem(id int) (*Item, error) {
+	ref, err := db.Ref(fmt.Sprintf(version+"/item/%d", id))
 	if err != nil {
 		log.Fatalf("request story reference failed @ reference: %s", err)
 	}
@@ -77,27 +68,26 @@ func (api *HAPI) GetItem(id int) (*Item, error) {
 	}, nil
 }
 
-// GetItems is a aggregate function for the top-level endpoints as specified
-// above.
-func (api *HAPI) GetItems(req *Request) (contentChan chan *Item) {
-	contentChan = make(chan *Item)
+// GetPosts retrieves the specified type and number of posts.
+func (db *HNdb) GetPosts(req *Request) (contentChan chan *Item) {
+	contentChan = make(chan *Item, req.NumPosts)
+
 	for {
-		ref, err := api.Firebase.Ref(endPoint[req.RequestType])
+		ref, err := db.Firebase.Ref(endPoint[req.PostType])
 		if err != nil {
 			log.Fatal("error firebase reference")
 		}
 		var ids []int
 		if err := ref.Value(&ids); err != nil {
-			log.Printf("%s stories request failed", req.RequestType)
+			log.Printf("%s stories request failed", req.PostType)
 		}
-		iterator, _ := strconv.Atoi(req.Payload)
-		ids = ids[:iterator]
+
+		ids = ids[:req.NumPosts]
 		for _, id := range ids {
-			go func(id int) {
-				item, _ := api.GetItem(id)
-				contentChan <- item
-			}(int(id))
+			item, _ := db.GetItem(id)
+			contentChan <- item
 		}
+		close(contentChan)
 		return contentChan
 	}
 }

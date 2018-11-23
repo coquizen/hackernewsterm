@@ -1,9 +1,9 @@
-package models
+package hnapi
 
 // Message struct for requesting data from server
 type Request struct {
-	RequestType string `json:"requesttype"`
-	Payload     string `json:"payload"`
+	PostType string `json:"posttype"`
+	NumPosts int    `json:"numposts"`
 }
 
 // Story is the posting data type
@@ -35,5 +35,3 @@ type Item struct {
 	Parts       []string `json:"parts,omitempty"`
 	Descendants int      `json:"descendants,omitempty"`
 }
-
-
