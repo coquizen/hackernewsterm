@@ -6,7 +6,6 @@ import (
 	"log"
 	"net/url"
 	"os/exec"
-	"sync"
 	"time"
 
 	"github.com/caninodev/hackernewsterm/hnapi"
@@ -14,21 +13,20 @@ import (
 	"github.com/rivo/tview"
 )
 
-var wg = sync.WaitGroup{}
 var (
-	cache   []hnapi.Item
-	numCols int
+	cache         []hnapi.Item
+	numCols       int
 	hnColorOrange tcell.Color
 )
 
 type GUI struct {
-	layout *tview.Flex
-	//header   *tview.TextView
+	layout   *tview.Flex
 	list     *tview.List
 	content  *tview.TextView
 	comments *tview.TreeView
 	console  *tview.TextView
 }
+
 
 // Create establishes the ui and widget parameters
 func (gui *GUI) Create() {
@@ -39,7 +37,7 @@ func (gui *GUI) Create() {
 	//
 	//gui.header.SetTextAlign(tview.AlignCenter)
 
-	hnColorOrange = tcell.NewRGBColor(238,111,45)
+	hnColorOrange = tcell.NewRGBColor(238, 111, 45)
 
 	gui.list = tview.NewList()
 	gui.list.ShowSecondaryText(true)
@@ -49,7 +47,7 @@ func (gui *GUI) Create() {
 	gui.content.SetDynamicColors(true)
 	gui.content.SetScrollable(true)
 
-	placeNode := tview.NewTreeNode(".")
+	placeNode := tview.NewTreeNode("")
 	gui.comments = tview.NewTreeView().
 		SetGraphics(true).
 		SetTopLevel(0).
@@ -64,7 +62,6 @@ func (gui *GUI) Create() {
 	gui.console = tview.NewTextView()
 	gui.console.SetDynamicColors(true)
 
-
 	var defaultRequest = &hnapi.Request{
 		PostType: "top",
 		NumPosts: 50,
@@ -74,6 +71,7 @@ func (gui *GUI) Create() {
 		gui.getPosts(defaultRequest)
 	}(defaultRequest)
 
+	// The following produces the Tall layout (one main pane to the left with the other two divided vertically to the right
 	gui.layout = tview.NewFlex().
 		SetDirection(tview.FlexRow).
 		AddItem(tview.NewFlex().
@@ -82,8 +80,8 @@ func (gui *GUI) Create() {
 			AddItem(tview.NewFlex().
 				SetDirection(tview.FlexRow).
 				AddItem(gui.content, 0, 1, false).
-				AddItem(gui.comments, 0, 1, false), 0, 1, false), 0, 1, true)
-	gui.layout.AddItem(gui.console, 1, 1, false)
+				AddItem(gui.comments, 0, 1, false), 0, 1, false), 0, 1, true).
+		AddItem(gui.console, 1, 1, false)
 }
 
 func (gui *GUI) KeyHandler(key *tcell.EventKey) *tcell.EventKey {
@@ -117,9 +115,10 @@ func (gui *GUI) getPosts(request *hnapi.Request) {
 
 	stream := app.api.GetPosts(request)
 	cache = make([]hnapi.Item, request.NumPosts)
+	itrString := []rune("abcdefghijklmnopqrstuvwxyz1234567890-=_+[]<>?!`~$%^@()")
 	for item := range stream {
 		cache[idx] = *item
-		gui.renderListItem(cache[idx], idx)
+		gui.renderListItem(cache[idx], itrString[idx])
 		idx++
 	}
 	gui.list.SetBorder(false)
@@ -142,13 +141,13 @@ func updateDisplay(index int, _ string, _ string, _ rune) {
 	app.gui.console.Clear()
 }
 
-func (gui *GUI) renderListItem(item hnapi.Item, idx int) {
+func (gui *GUI) renderListItem(item hnapi.Item, idx rune) {
 	//mainString := []string{"[yellow:-]", strconv.Itoa(idx), "[-:-:-] ", formatMainText(&item)}
 	//mainText := strings.Join(mainString, "")
 	//secondaryText := formatSubText(&item)
 	m := formatMainText(&item)
 	n := formatSubText(&item)
-	gui.list.AddItem(*m, *n, rune(idx+1), nil)
+	gui.list.AddItem(*m, *n, idx, nil)
 
 }
 
@@ -229,9 +228,7 @@ func germinate(topNode *tview.TreeNode, item hnapi.Item) {
 		topNode.AddChild(rootNode)
 	}
 	app.gui.comments.SetRoot(topNode)
-	// 	SetSelectedFunc(func(n *tview.TreeNode) {
-	//
 	app.main.Draw()
 	app.gui.list.SetBorder(false)
-
+	app.gui.console.Clear()
 }
