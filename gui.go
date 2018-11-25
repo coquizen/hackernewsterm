@@ -11,7 +11,6 @@ import (
 
 	"github.com/caninodev/hackernewsterm/hnapi"
 	"github.com/gdamore/tcell"
-	"github.com/rickb777/date/period"
 	"github.com/rivo/tview"
 )
 
@@ -19,6 +18,7 @@ var wg = sync.WaitGroup{}
 var (
 	cache   []hnapi.Item
 	numCols int
+	hnColorOrange tcell.Color
 )
 
 type GUI struct {
@@ -39,26 +39,31 @@ func (gui *GUI) Create() {
 	//
 	//gui.header.SetTextAlign(tview.AlignCenter)
 
+	hnColorOrange = tcell.NewRGBColor(238,111,45)
+
 	gui.list = tview.NewList()
 	gui.list.ShowSecondaryText(true)
-	gui.list.SetBorder(true)
 	gui.list.SetChangedFunc(updateDisplay)
 
 	gui.content = tview.NewTextView()
-	gui.content.SetDynamicColors(true).
-		SetBorder(true)
+	gui.content.SetDynamicColors(true)
 	gui.content.SetScrollable(true)
-	gui.content.SetBorderPadding(0, 0, 2, 2)
-	_, _, numCols, _ = gui.content.GetInnerRect()
 
 	placeNode := tview.NewTreeNode(".")
 	gui.comments = tview.NewTreeView().
 		SetGraphics(true).
 		SetTopLevel(0).
 		SetRoot(placeNode)
+	gui.comments.SetSelectedFunc(func(node *tview.TreeNode) {
+		currentRefNode := node.GetReference().(*tview.TreeNode)
+		if currentRefNode.IsExpanded() {
+			node.SetExpanded(!node.IsExpanded())
+		}
+	})
 
 	gui.console = tview.NewTextView()
 	gui.console.SetDynamicColors(true)
+
 
 	var defaultRequest = &hnapi.Request{
 		PostType: "top",
@@ -93,10 +98,11 @@ func (gui *GUI) KeyHandler(key *tcell.EventKey) *tcell.EventKey {
 			app.main.SetFocus(app.gui.list)
 		}
 		if key.Rune() == 'k' {
+			currentFocus := app.main.GetFocus()
 			app.main.SetFocus(app.gui.content)
 			x, y := app.gui.content.GetScrollOffset()
 			app.gui.content.ScrollTo(x-1, y)
-			app.main.SetFocus(app.gui.list)
+			app.main.SetFocus(currentFocus)
 		}
 
 	}
@@ -104,7 +110,7 @@ func (gui *GUI) KeyHandler(key *tcell.EventKey) *tcell.EventKey {
 }
 
 func (gui *GUI) getPosts(request *hnapi.Request) {
-
+	gui.list.SetBorderColor(tcell.ColorSalmon)
 	gui.list.SetTitle(request.PostType + " stories")
 
 	idx := 0
@@ -116,6 +122,8 @@ func (gui *GUI) getPosts(request *hnapi.Request) {
 		gui.renderListItem(cache[idx], idx)
 		idx++
 	}
+	gui.list.SetBorder(false)
+
 }
 
 func updateDisplay(index int, _ string, _ string, _ rune) {
@@ -123,6 +131,7 @@ func updateDisplay(index int, _ string, _ string, _ rune) {
 	var topLevelNode *tview.TreeNode
 	cmt := fmt.Sprintf("ID: %d", cache[index].ID)
 	topLevelNode = tview.NewTreeNode(cmt)
+	_, _, numCols, _ = app.gui.content.GetInnerRect()
 
 	go func() {
 		parseHTML(cache[index])
@@ -140,6 +149,7 @@ func (gui *GUI) renderListItem(item hnapi.Item, idx int) {
 	m := formatMainText(&item)
 	n := formatSubText(&item)
 	gui.list.AddItem(*m, *n, rune(idx+1), nil)
+
 }
 
 func formatMainText(item *hnapi.Item) *string {
@@ -167,7 +177,8 @@ func formatSubText(item *hnapi.Item) *string {
 }
 
 func parseHTML(item hnapi.Item) {
-	fmt.Fprint(app.gui.console, " Loading Page... ")
+	app.gui.content.SetBorder(true)
+	app.gui.content.SetBorderColor(hnColorOrange)
 	app.gui.content.Clear()
 	app.gui.content.SetTitle(item.URL)
 	webCMD := exec.Command("w3m", "-dump", "-graph", "-X", "-cols", string(numCols), item.URL)
@@ -180,6 +191,7 @@ func parseHTML(item hnapi.Item) {
 		}
 	})
 	app.main.Draw()
+	app.gui.content.SetBorder(false)
 	fmt.Fprint(app.gui.console, " Page done.")
 }
 
@@ -187,16 +199,18 @@ func parseHTML(item hnapi.Item) {
 func createAllChildNodes(parentItem *hnapi.Item) *tview.TreeNode {
 	var getChildrenNodes func(item *hnapi.Item) *tview.TreeNode
 	getChildrenNodes = func(item *hnapi.Item) *tview.TreeNode {
-		timeSince := time.Since(time.Unix(item.Time, 0))
-		p, _ := period.NewOf(timeSince)
-		timeStr := p.String()
-		commentText := fmt.Sprintf("[::b]%s[::d] (%s) [-:-:-]-- %s", item.By, timeStr, html.UnescapeString(item.Text))
-		app.gui.console.Clear()
-		commentNode := *tview.NewTreeNode("").SetReference(item.ID).SetText(commentText)
+		var commentNode tview.TreeNode
 		for _, childID := range item.Kids {
 			childItem, _ := app.api.GetItem(childID)
-			childNode := getChildrenNodes(childItem)
-			commentNode.AddChild(childNode)
+			commentText := fmt.Sprintf("[-:-:-]%s[::d] (%s) [-:-:-] %d %d %s", item.By, time.Unix(item.Time, 0), item.ID, item.Descendants, html.UnescapeString(item.Text))
+			commentNode = *tview.NewTreeNode("").
+				SetReference(item).
+				SetText(commentText)
+
+			if childItem.Descendants > 0 {
+				childNode := getChildrenNodes(childItem)
+				commentNode.AddChild(childNode)
+			}
 		}
 		return &commentNode
 	}
@@ -204,24 +218,20 @@ func createAllChildNodes(parentItem *hnapi.Item) *tview.TreeNode {
 }
 
 func germinate(topNode *tview.TreeNode, item hnapi.Item) {
+	app.gui.list.SetBorder(true)
+	app.gui.list.SetBorderColor(hnColorOrange)
 	fmt.Fprint(app.gui.console, " Loading comments...")
 	for childID := range item.Kids {
 		rootComment, _ := app.api.GetItem(childID)
 		rootNode := createAllChildNodes(rootComment)
 		rootNode.SetExpanded(true)
 		rootNode.SetReference(childID)
-		//commentText := fmt.Sprintf("comment: %d", childID)
-		//commentText := fmt.Sprintf("[gre.en::b]%s[-::d] -- %s %d", rootComment.By, string(rootComment.Text), rootComment.ID)
-		//log.Print(rootComment.Text)
-		//rootNode.SetText(commentText)
 		topNode.AddChild(rootNode)
 	}
 	app.gui.comments.SetRoot(topNode)
 	// 	SetSelectedFunc(func(n *tview.TreeNode) {
-	// 		original := n.GetReference().(*tview.TreeNode)
-	// 		if original.IsExpanded() {
-	// 			n.SetExpanded(!n.IsExpanded())
-	// 		}
+	//
 	app.main.Draw()
-	fmt.Fprint(app.gui.console, "comments done!")
+	app.gui.list.SetBorder(false)
+
 }
