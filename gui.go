@@ -47,11 +47,11 @@ func (gui *GUI) Create() {
 	gui.content.SetDynamicColors(true)
 	gui.content.SetScrollable(true)
 
-	placeNode := tview.NewTreeNode("")
+	//placeNode := tview.NewTreeNode("")
 	gui.comments = tview.NewTreeView().
 		SetGraphics(true).
-		SetTopLevel(0).
-		SetRoot(placeNode)
+		SetTopLevel(0)
+		//SetRoot(placeNode)
 	gui.comments.SetSelectedFunc(func(node *tview.TreeNode) {
 		currentRefNode := node.GetReference().(*tview.TreeNode)
 		if currentRefNode.IsExpanded() {
@@ -115,10 +115,10 @@ func (gui *GUI) getPosts(request *hnapi.Request) {
 
 	stream := app.api.GetPosts(request)
 	cache = make([]hnapi.Item, request.NumPosts)
-	itrString := []rune("abcdefghijklmnopqrstuvwxyz1234567890-=_+[]<>?!`~$%^@()")
+	itrString := []rune("abcdefghilmnopqrstuvwxyz1234567890-=_+[]<>?!`~$%^@()")
 	for item := range stream {
 		cache[idx] = *item
-		gui.renderListItem(cache[idx], itrString[idx])
+		gui.renderListItem(item, itrString[idx])
 		idx++
 	}
 	gui.list.SetBorder(false)
@@ -201,14 +201,17 @@ func createAllChildNodes(parentItem *hnapi.Item) *tview.TreeNode {
 		var commentNode tview.TreeNode
 		for _, childID := range item.Kids {
 			childItem, _ := app.api.GetItem(childID)
-			commentText := fmt.Sprintf("[-:-:-]%s[::d] (%s) [-:-:-] %d %d %s", item.By, time.Unix(item.Time, 0), item.ID, item.Descendants, html.UnescapeString(item.Text))
+			tm := time.Unix(item.Time, 0)
+			commentText := fmt.Sprintf("[-:-:-]%s[::d] (%s) [-:-:-] %d %d %s", item.By, tm.UTC(), item.ID, item.Descendants, html.UnescapeString(item.Text))
 			commentNode = *tview.NewTreeNode("").
 				SetReference(item).
 				SetText(commentText)
-
 			if childItem.Descendants > 0 {
 				childNode := getChildrenNodes(childItem)
 				commentNode.AddChild(childNode)
+			}
+			if childItem.Descendants == 0 {
+				commentNode.SetSelectable(false)
 			}
 		}
 		return &commentNode
@@ -217,6 +220,7 @@ func createAllChildNodes(parentItem *hnapi.Item) *tview.TreeNode {
 }
 
 func germinate(topNode *tview.TreeNode, item hnapi.Item) {
+	topNode.ClearChildren()
 	app.gui.list.SetBorder(true)
 	app.gui.list.SetBorderColor(hnColorOrange)
 	fmt.Fprint(app.gui.console, " Loading comments...")
@@ -228,7 +232,8 @@ func germinate(topNode *tview.TreeNode, item hnapi.Item) {
 		topNode.AddChild(rootNode)
 	}
 	app.gui.comments.SetRoot(topNode)
-	app.main.Draw()
+	app.gui.comments.SetCurrentNode(topNode)
 	app.gui.list.SetBorder(false)
 	app.gui.console.Clear()
+	app.main.Draw()
 }

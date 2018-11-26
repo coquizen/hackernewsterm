@@ -34,7 +34,7 @@ type Item struct {
 	Deleted     bool     `json:"deleted,omitempty"`
 	Type        string   `json:"type,omitempty"`
 	By          string   `json:"by,omitempty"`
-	Time        int64    `json:"time,omitempty"`
+	Time        int64   `json:"time,omitempty"`
 	Text        string   `json:"text,omitempty"`
 	Title       string   `json:"title,omitempty"`
 	Dead        bool     `json:"dead,omitempty"`
