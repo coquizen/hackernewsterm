@@ -24,7 +24,7 @@ func (a *myApp) initialize() {
 	a.gui.Create()
 
 	a.main.SetRoot(a.gui.layout, true)
-	a.main.SetInputCapture(a.gui.KeyHandler)
+	a.main.SetInputCapture(a.gui.keyHandler)
 }
 
 // and finally, putting it all together
