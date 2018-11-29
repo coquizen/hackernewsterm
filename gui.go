@@ -1,10 +1,12 @@
 package main
 
 import (
+	"container/ring"
 	"fmt"
 	"log"
 	"net/url"
 	"os/exec"
+	"reflect"
 
 	"github.com/caninodev/hackernewsterm/hnapi"
 	"github.com/gdamore/tcell"
@@ -15,6 +17,7 @@ var (
 	cache         []hnapi.Item
 	numCols       int
 	hnColorOrange tcell.Color
+	finder        *ring.Ring
 )
 
 type GUI struct {
@@ -36,17 +39,25 @@ func (gui *GUI) Create() {
 
 	hnColorOrange = tcell.NewRGBColor(238, 111, 45)
 
+	finder = ring.New(3)
+
 	gui.list = tview.NewList()
 	gui.list.ShowSecondaryText(true)
 	gui.list.SetChangedFunc(updateDisplay)
+	finder.Value = gui.list
+	finder.Next()
 
 	gui.content = tview.NewTextView()
 	gui.content.SetDynamicColors(true)
 	gui.content.SetScrollable(true)
+	finder.Value = gui.content
+	finder.Next()
 
 	placeNode := tview.NewTreeNode("Loading...")
 	gui.comments = tview.NewTreeView().
 		SetRoot(placeNode)
+	finder.Value = gui.comments
+	finder.Next()
 
 	gui.console = tview.NewTextView()
 	gui.console.SetDynamicColors(true)
@@ -77,27 +88,25 @@ func (gui *GUI) keyHandler(key *tcell.EventKey) *tcell.EventKey {
 	switch key.Key() {
 	case tcell.KeyEsc:
 		app.main.Stop()
-	case tcell.KeyRune:
-		if key.Rune() == 'j' {
-			app.main.SetFocus(app.gui.content)
-			x, y := app.gui.content.GetScrollOffset()
-			app.gui.content.ScrollTo(x+1, y)
-			app.main.SetFocus(app.gui.list)
-		}
-		if key.Rune() == 'k' {
-			currentFocus := app.main.GetFocus()
-			app.main.SetFocus(app.gui.content)
-			x, y := app.gui.content.GetScrollOffset()
-			app.gui.content.ScrollTo(x-1, y)
-			app.main.SetFocus(currentFocus)
-		}
+	case tcell.KeyTab:
+		gui.changeFinderFocus()
 
 	}
 	return key
 }
 
+func (gui *GUI) changeFinderFocus() {
+	currentlyFocused := finder.Value.(tview.Primitive)
+	finder.Next()
+	newlyFocused := finder.Value.(tview.Primitive)
+	app.main.SetFocus(newlyFocused)
+	logCFocus := fmt.Sprintf("CurrentlyFocused: %#v, newlyFocused: %#v", reflect.TypeOf(currentlyFocused), reflect.TypeOf(newlyFocused))
+	gui.console.SetText(logCFocus)
+	// newlyFocused.SetBorder(true).SetBorderColor(hnColorOrange)
+
+}
+
 func (gui *GUI) getPosts(request *hnapi.Request) {
-	gui.list.SetBorderColor(tcell.ColorSalmon)
 	gui.list.SetTitle(request.PostType + " stories")
 
 	idx := 0
@@ -110,8 +119,6 @@ func (gui *GUI) getPosts(request *hnapi.Request) {
 		gui.renderListItem(*item, itrString[idx])
 		idx++
 	}
-	gui.list.SetBorder(false)
-
 }
 
 func updateDisplay(index int, _ string, _ string, _ rune) {
@@ -161,9 +168,6 @@ func formatSubText(item *hnapi.Item) *string {
 }
 
 func parseHTML(item hnapi.Item) {
-	app.gui.content.SetBorder(true)
-	app.gui.content.SetBorderColor(hnColorOrange)
-	app.gui.content.Clear()
 	app.gui.content.SetTitle(item.URL)
 	webCMD := exec.Command("w3m", "-dump", "-graph", "-X", "-cols", string(numCols), item.URL)
 
@@ -174,7 +178,6 @@ func parseHTML(item hnapi.Item) {
 			log.Print(err)
 		}
 	})
-	app.main.Draw()
-	app.gui.content.SetBorder(false)
+
 	fmt.Fprint(app.gui.console, " Page done.")
 }
