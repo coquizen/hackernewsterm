@@ -20,12 +20,15 @@ var (
 	finder        *ring.Ring
 )
 
+// GUI structure contains all the UI element for the applicaiton.
 type GUI struct {
-	layout   *tview.Flex
-	list     *tview.List
-	content  *tview.TextView
-	comments *tview.TreeView
-	console  *tview.TextView
+	layout          *tview.Flex
+	list            *tview.List
+	content         *tview.TextView
+	comments        *tview.TreeView
+	commentsContent *tview.TextView
+	console         *tview.TextView
+	pages           *tview.Pages
 }
 
 // Create establishes the ui and widget parameters
@@ -38,26 +41,40 @@ func (gui *GUI) Create() {
 	//gui.header.SetTextAlign(tview.AlignCenter)
 
 	hnColorOrange = tcell.NewRGBColor(238, 111, 45)
+	gui.pages = tview.NewPages()
+	gui.pages.SetBorderPadding(0,0,1,0)
 
 	finder = ring.New(3)
 
 	gui.list = tview.NewList()
 	gui.list.ShowSecondaryText(true)
-	gui.list.SetChangedFunc(updateDisplay)
-	finder.Value = gui.list
-	finder.Next()
+	gui.list.SetChangedFunc(updateDisplay).
+		SetBorder(true)
 
 	gui.content = tview.NewTextView()
 	gui.content.SetDynamicColors(true)
 	gui.content.SetScrollable(true)
-	finder.Value = gui.content
-	finder.Next()
+	gui.pages.AddPage("content", gui.content, false, true )
+
 
 	placeNode := tview.NewTreeNode("Loading...")
 	gui.comments = tview.NewTreeView().
 		SetRoot(placeNode)
 	finder.Value = gui.comments
 	finder.Next()
+
+	gui.commentsContent = tview.NewTextView().
+		SetDynamicColors(true).
+		SetScrollable(true).
+		SetWrap(true)
+
+	commentsPage := tview.NewFlex()
+	commentsPage.SetDirection(tview.FlexColumn)
+	commentsPage.AddItem(gui.comments, 0, 1, true).
+		AddItem(gui.commentsContent, 0, 3, false)
+
+	gui.pages.AddPage("comments", commentsPage, false, false).
+		SwitchToPage("content")
 
 	gui.console = tview.NewTextView()
 	gui.console.SetDynamicColors(true)
@@ -73,23 +90,35 @@ func (gui *GUI) Create() {
 
 	// The following produces the Tall layout (one main pane to the left with the other two divided vertically to the right
 	gui.layout = tview.NewFlex().
+		SetDirection(tview.FlexColumn).
+		AddItem(gui.list, 0, 1, true).
+		AddItem(commentsPage, 0, 1, false).
 		SetDirection(tview.FlexRow).
-		AddItem(tview.NewFlex().
-			SetDirection(tview.FlexColumn).
-			AddItem(gui.list, 0, 1, true).
-			AddItem(tview.NewFlex().
-				SetDirection(tview.FlexRow).
-				AddItem(gui.content, 0, 1, false).
-				AddItem(gui.comments, 0, 1, false), 0, 1, false), 0, 1, true).
-		AddItem(gui.console, 1, 1, false)
+		AddItem(gui.console, 1,1,false)
 }
 
 func (gui *GUI) keyHandler(key *tcell.EventKey) *tcell.EventKey {
 	switch key.Key() {
 	case tcell.KeyEsc:
 		app.main.Stop()
-	case tcell.KeyTab:
-		gui.changeFinderFocus()
+	case tcell.KeyRune:
+		if key.Rune() == 'j' {
+			app.main.SetFocus(app.gui.content)
+			x, y := app.gui.content.GetScrollOffset()
+			app.gui.content.ScrollTo(x+1, y)
+			app.main.SetFocus(app.gui.list)
+		}
+		if key.Rune() == 'k' {
+			currentFocus := app.main.GetFocus()
+			app.main.SetFocus(app.gui.content)
+			x, y := app.gui.content.GetScrollOffset()
+			app.gui.content.ScrollTo(x-1, y)
+			app.main.SetFocus(currentFocus)
+		}
+		if key.Rune() == 'C' {
+			//gui.pages.SwitchToPage("comments")
+			app.main.SetFocus(app.gui.comments)
+		}
 
 	}
 	return key

@@ -3,9 +3,11 @@ package main
 import (
 	"fmt"
 	"html"
+	"log"
 	"time"
 
 	"github.com/caninodev/hackernewsterm/hnapi"
+	"github.com/dustin/go-humanize"
 	"github.com/gdamore/tcell"
 	"github.com/rivo/tview"
 )
@@ -22,7 +24,7 @@ func createChildrenCommentNodes(rootCommentItem *hnapi.Item) *tview.TreeNode {
 	var addChildNode func(commentItem *hnapi.Item) *tview.TreeNode
 	addChildNode = func(commentItem *hnapi.Item) *tview.TreeNode {
 		tm := time.Unix(commentItem.Time, 0)
-		commentText := fmt.Sprintf("[-:-:-]%s[::d] (%s) %d --[::-]%s", commentItem.By, tm.UTC(), len(commentItem.Kids), html.UnescapeString(commentItem.Text))
+		commentText := fmt.Sprintf("[-:-:-]%s[::d] (%s) %d --[::-]%s", commentItem.By, humanize.Time(tm), len(commentItem.Kids), html.UnescapeString(commentItem.Text))
 		commentNode := tview.NewTreeNode(commentText)
 		commentNode.SetReference(commentItem)
 		for _, kidID := range commentItem.Kids {
@@ -40,7 +42,13 @@ func createChildrenCommentNodes(rootCommentItem *hnapi.Item) *tview.TreeNode {
 }
 
 func germinate(storyItem hnapi.Item) {
-	fmt.Fprint(app.gui.console, "Loading comments...")
+	app.gui.comments.SetChangedFunc(func(node *tview.TreeNode) {
+		item := node.GetReference().(*hnapi.Item)
+		app.gui.commentsContent.SetText(html.UnescapeString(item.Text))
+	})
+	if _, err := fmt.Fprint(app.gui.console, "Loading comments..."); err != nil {
+		log.Print(err)
+	}
 
 	var add func(targets *tview.TreeNode) *tview.TreeNode
 	add = func(target *tview.TreeNode) *tview.TreeNode {
