@@ -1,12 +1,9 @@
 package main
 
 import (
-	"container/ring"
 	"fmt"
-	"log"
 	"net/url"
-	"os/exec"
-	"reflect"
+	"strconv"
 
 	"github.com/caninodev/hackernewsterm/hnapi"
 	"github.com/gdamore/tcell"
@@ -17,10 +14,14 @@ var (
 	cache         []hnapi.Item
 	numCols       int
 	hnColorOrange tcell.Color
-	finder        *ring.Ring
 )
 
-// GUI structure contains all the UI element for the applicaiton.
+// Slide is a function which returns the slide's main primitive and its title.
+// It receives a "nextSlide" function which can be called to advance the
+// presentation to the next slide.
+type Slide func(nextSlide func()) (title string, content tview.Primitive)
+
+// GUI structure contains all the UI element for the application.
 type GUI struct {
 	layout          *tview.Flex
 	list            *tview.List
@@ -29,72 +30,67 @@ type GUI struct {
 	commentsContent *tview.TextView
 	console         *tview.TextView
 	pages           *tview.Pages
+	commentsPage    *tview.Flex
 }
 
 // Create establishes the ui and widget parameters
 func (gui *GUI) Create() {
-	//gui.header = tview.NewTextView().
-	//	SetDynamicColors(true).
-	//	SetRegions(true).
-	//	SetWrap(false)
-	//
-	//gui.header.SetTextAlign(tview.AlignCenter)
-
 	hnColorOrange = tcell.NewRGBColor(238, 111, 45)
-	gui.pages = tview.NewPages()
-	gui.pages.SetBorderPadding(0,0,1,0)
-
-	finder = ring.New(3)
-
-	gui.list = tview.NewList()
-	gui.list.ShowSecondaryText(true)
-	gui.list.SetChangedFunc(updateDisplay).
-		SetBorder(true)
-
-	gui.content = tview.NewTextView()
-	gui.content.SetDynamicColors(true)
-	gui.content.SetScrollable(true)
-	gui.pages.AddPage("content", gui.content, false, true )
-
-
-	placeNode := tview.NewTreeNode("Loading...")
-	gui.comments = tview.NewTreeView().
-		SetRoot(placeNode)
-	finder.Value = gui.comments
-	finder.Next()
-
-	gui.commentsContent = tview.NewTextView().
-		SetDynamicColors(true).
-		SetScrollable(true).
-		SetWrap(true)
-
-	commentsPage := tview.NewFlex()
-	commentsPage.SetDirection(tview.FlexColumn)
-	commentsPage.AddItem(gui.comments, 0, 1, true).
-		AddItem(gui.commentsContent, 0, 3, false)
-
-	gui.pages.AddPage("comments", commentsPage, false, false).
-		SwitchToPage("content")
-
-	gui.console = tview.NewTextView()
-	gui.console.SetDynamicColors(true)
 
 	var defaultRequest = &hnapi.Request{
 		PostType: "top",
 		NumPosts: 50,
 	}
 
+	gui.topPane()
+	gui.bottomPane()
+
 	go func(req *hnapi.Request) {
 		gui.getPosts(defaultRequest)
 	}(defaultRequest)
 
-	// The following produces the Tall layout (one main pane to the left with the other two divided vertically to the right
+	gui.console = tview.NewTextView()
+	gui.console.
+		SetDynamicColors(true).
+		SetBackgroundColor(hnColorOrange)
+
 	gui.layout = tview.NewFlex().
-		SetDirection(tview.FlexColumn).
-		AddItem(gui.list, 0, 1, true).
-		AddItem(commentsPage, 0, 1, false).
 		SetDirection(tview.FlexRow).
-		AddItem(gui.console, 1,1,false)
+		AddItem(gui.list, 0, 2, true).
+		AddItem(gui.pages, 0, 5, true).
+		AddItem(gui.console, 1, 1, false)
+}
+
+func (gui *GUI) topPane() {
+	gui.list = tview.NewList()
+	gui.list.ShowSecondaryText(true).
+		SetChangedFunc(updateDisplay).
+		SetBorder(true)
+}
+
+func (gui *GUI) bottomPane() {
+	slides := []Slide{
+		WebContent,
+		Comments,
+	}
+	gui.pages = tview.NewPages()
+
+	currentSlide := 0
+
+	// previousSlide := func() {
+	// 	currentSlide = (currentSlide - 1 + len(slides)) % len(slides)
+	// 	gui.pages.SwitchToPage(strconv.Itoa(currentSlide))
+	// }
+
+	nextSlide := func() {
+		currentSlide = (currentSlide + 1) % len(slides)
+		gui.pages.SwitchToPage(strconv.Itoa(currentSlide))
+	}
+
+	for index, slide := range slides {
+		_, primitive := slide(nextSlide)
+		gui.pages.AddPage(strconv.Itoa(index), primitive, true, index == currentSlide)
+	}
 }
 
 func (gui *GUI) keyHandler(key *tcell.EventKey) *tcell.EventKey {
@@ -102,41 +98,15 @@ func (gui *GUI) keyHandler(key *tcell.EventKey) *tcell.EventKey {
 	case tcell.KeyEsc:
 		app.main.Stop()
 	case tcell.KeyRune:
-		if key.Rune() == 'j' {
-			app.main.SetFocus(app.gui.content)
-			x, y := app.gui.content.GetScrollOffset()
-			app.gui.content.ScrollTo(x+1, y)
-			app.main.SetFocus(app.gui.list)
-		}
-		if key.Rune() == 'k' {
-			currentFocus := app.main.GetFocus()
-			app.main.SetFocus(app.gui.content)
-			x, y := app.gui.content.GetScrollOffset()
-			app.gui.content.ScrollTo(x-1, y)
-			app.main.SetFocus(currentFocus)
-		}
 		if key.Rune() == 'C' {
-			//gui.pages.SwitchToPage("comments")
-			app.main.SetFocus(app.gui.comments)
+			gui.pages.SwitchToPage("Comments")
 		}
-
 	}
 	return key
 }
 
-func (gui *GUI) changeFinderFocus() {
-	currentlyFocused := finder.Value.(tview.Primitive)
-	finder.Next()
-	newlyFocused := finder.Value.(tview.Primitive)
-	app.main.SetFocus(newlyFocused)
-	logCFocus := fmt.Sprintf("CurrentlyFocused: %#v, newlyFocused: %#v", reflect.TypeOf(currentlyFocused), reflect.TypeOf(newlyFocused))
-	gui.console.SetText(logCFocus)
-	// newlyFocused.SetBorder(true).SetBorderColor(hnColorOrange)
-
-}
-
 func (gui *GUI) getPosts(request *hnapi.Request) {
-	gui.list.SetTitle(request.PostType + " stories")
+	gui.list.SetTitle(" " + request.PostType + " stories ")
 
 	idx := 0
 
@@ -148,6 +118,7 @@ func (gui *GUI) getPosts(request *hnapi.Request) {
 		gui.renderListItem(*item, itrString[idx])
 		idx++
 	}
+	parseHTML(cache[0])
 }
 
 func updateDisplay(index int, _ string, _ string, _ rune) {
@@ -156,20 +127,14 @@ func updateDisplay(index int, _ string, _ string, _ rune) {
 	go func() {
 		parseHTML(cache[index])
 		germinate(cache[index])
-
 	}()
-	app.main.Draw()
-	app.gui.console.Clear()
+
 }
 
 func (gui *GUI) renderListItem(item hnapi.Item, idx rune) {
-	//mainString := []string{"[yellow:-]", strconv.Itoa(idx), "[-:-:-] ", formatMainText(&item)}
-	//mainText := strings.Join(mainString, "")
-	//secondaryText := formatSubText(&item)
 	m := formatMainText(&item)
 	n := formatSubText(&item)
 	gui.list.AddItem(*m, *n, idx, nil)
-
 }
 
 func formatMainText(item *hnapi.Item) *string {
@@ -192,21 +157,6 @@ func formatSubText(item *hnapi.Item) *string {
 		scoreColor = "[green::b]"
 	}
 
-	str := fmt.Sprintf("[-::d]score: %s %d [-::-][::d] comments:[::-] %d [::d] by:[green::-] %s [-:-:-]", scoreColor, item.Score, item.Descendants, item.By)
+	str := fmt.Sprintf("[-::d] %s %d points,[-:-:-] %d [::d]comments, by:[green::-] %s [-:-:-]", scoreColor, item.Score, item.Descendants, item.By)
 	return &str
-}
-
-func parseHTML(item hnapi.Item) {
-	app.gui.content.SetTitle(item.URL)
-	webCMD := exec.Command("w3m", "-dump", "-graph", "-X", "-cols", string(numCols), item.URL)
-
-	app.main.QueueUpdateDraw(func() {
-		stdOutput, _ := webCMD.CombinedOutput()
-		_, err := app.gui.content.Write(stdOutput)
-		if err != nil {
-			log.Print(err)
-		}
-	})
-
-	fmt.Fprint(app.gui.console, " Page done.")
 }

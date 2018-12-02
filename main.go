@@ -1,8 +1,6 @@
 package main
 
 import (
-	"log"
-
 	"github.com/caninodev/hackernewsterm/hnapi"
 	"github.com/rivo/tview"
 )
@@ -16,24 +14,23 @@ type myApp struct {
 
 var app *myApp
 
-func (a *myApp) initialize() {
-	a.main = tview.NewApplication()
-	a.api = hnapi.New()
-	a.gui = &GUI{}
+func (app *myApp) initialize() {
+	app.main = tview.NewApplication()
+	app.api = hnapi.New()
+	app.gui = &GUI{}
 
-	a.gui.Create()
+	app.gui.Create()
 
-	a.main.SetRoot(a.gui.layout, true)
-	a.main.SetInputCapture(a.gui.keyHandler)
+	app.main.SetInputCapture(app.gui.keyHandler)
+
 }
 
 // and finally, putting it all together
 func main() {
 	app = new(myApp)
 	app.initialize()
-
-	err := app.main.Run()
-	if err != nil {
-		log.Panicln(err)
+	// Start the application.
+	if err := app.main.SetRoot(app.gui.layout, true).Run(); err != nil {
+		panic(err)
 	}
 }
