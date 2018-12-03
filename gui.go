@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"net/url"
 	"strconv"
 
@@ -14,6 +15,7 @@ var (
 	cache         []hnapi.Item
 	numCols       int
 	hnColorOrange tcell.Color
+	nextSlide     func()
 )
 
 // Slide is a function which returns the slide's main primitive and its title.
@@ -26,11 +28,11 @@ type GUI struct {
 	layout          *tview.Flex
 	list            *tview.List
 	content         *tview.TextView
+	commentTitle    *tview.TextView
 	comments        *tview.TreeView
 	commentsContent *tview.TextView
 	console         *tview.TextView
 	pages           *tview.Pages
-	commentsPage    *tview.Flex
 }
 
 // Create establishes the ui and widget parameters
@@ -64,8 +66,7 @@ func (gui *GUI) Create() {
 func (gui *GUI) topPane() {
 	gui.list = tview.NewList()
 	gui.list.ShowSecondaryText(true).
-		SetChangedFunc(updateDisplay).
-		SetBorder(true)
+		SetChangedFunc(gui.updateDisplay)
 }
 
 func (gui *GUI) bottomPane() {
@@ -82,7 +83,7 @@ func (gui *GUI) bottomPane() {
 	// 	gui.pages.SwitchToPage(strconv.Itoa(currentSlide))
 	// }
 
-	nextSlide := func() {
+	nextSlide = func() {
 		currentSlide = (currentSlide + 1) % len(slides)
 		gui.pages.SwitchToPage(strconv.Itoa(currentSlide))
 	}
@@ -98,8 +99,40 @@ func (gui *GUI) keyHandler(key *tcell.EventKey) *tcell.EventKey {
 	case tcell.KeyEsc:
 		app.main.Stop()
 	case tcell.KeyRune:
+		if key.Rune() == 'j' {
+			app.main.SetFocus(app.gui.content)
+			x, y := gui.content.GetScrollOffset()
+			gui.content.ScrollTo(x+1, y)
+			app.main.SetFocus(app.gui.list)
+		}
+		if key.Rune() == 'k' {
+			currentFocus := app.main.GetFocus()
+			app.main.SetFocus(app.gui.content)
+			x, y := app.gui.content.GetScrollOffset()
+			gui.content.ScrollTo(x-1, y)
+			app.main.SetFocus(currentFocus)
+		}
 		if key.Rune() == 'C' {
-			gui.pages.SwitchToPage("Comments")
+			nextSlide()
+		}
+		if key.Rune() == 'I' {
+			n := gui.comments.GetCurrentNode()
+			item := n.GetReference().(*hnapi.Item)
+			_, err := fmt.Fprint(gui.console, item.Text)
+			if err != nil {
+				log.Print(err)
+			}
+		}
+		if key.Rune() == 'F' {
+			if gui.list.HasFocus() {
+				app.main.SetFocus(gui.pages)
+				gui.pages.SetBorder(true)
+				gui.list.SetBorder(false)
+			} else {
+				app.main.SetFocus(gui.list)
+				gui.list.SetBorder(true)
+				gui.pages.SetBorder(false)
+			}
 		}
 	}
 	return key
@@ -113,33 +146,39 @@ func (gui *GUI) getPosts(request *hnapi.Request) {
 	stream := app.api.GetPosts(request)
 	cache = make([]hnapi.Item, request.NumPosts)
 	itrString := []rune("abcdefghilmnopqrstuvwxyz1234567890-=_+[]<>?!`~$%^@()")
+
 	for item := range stream {
 		cache[idx] = *item
 		gui.renderListItem(*item, itrString[idx])
 		idx++
 	}
-	parseHTML(cache[0])
+
 }
 
-func updateDisplay(index int, _ string, _ string, _ rune) {
-	_, _, numCols, _ = app.gui.content.GetInnerRect()
+func (gui *GUI) updateDisplay(index int, _ string, _ string, _ rune) {
+	_, _, numCols, _ = gui.content.GetInnerRect()
 
-	go func() {
-		parseHTML(cache[index])
-		germinate(cache[index])
-	}()
+	go func(index int) {
+		gui.parseHTML(cache[index])
+		gui.germinate(cache[index])
+	}(index)
 
 }
 
 func (gui *GUI) renderListItem(item hnapi.Item, idx rune) {
 	m := formatMainText(&item)
 	n := formatSubText(&item)
-	gui.list.AddItem(*m, *n, idx, nil)
+	app.main.QueueUpdateDraw(func() {
+		gui.list.AddItem(*m, *n, idx, nil)
+	})
 }
 
 func formatMainText(item *hnapi.Item) *string {
-	addr, _ := url.Parse(item.URL)
-	mainText := fmt.Sprintf("[::b] %s [::d](%s)[::-]", item.Title, string(addr.Host))
+	addr, err := url.Parse(item.URL)
+	if err != nil {
+		log.Print(err)
+	}
+	mainText := fmt.Sprintf("[::b] %s [::d](%s)[::-]", item.Title, addr.Host)
 	return &mainText
 }
 

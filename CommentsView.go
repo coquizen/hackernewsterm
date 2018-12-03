@@ -2,8 +2,8 @@ package main
 
 import (
 	"fmt"
-	"html"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/caninodev/hackernewsterm/hnapi"
@@ -24,8 +24,12 @@ func createChildrenCommentNodes(rootCommentItem *hnapi.Item) *tview.TreeNode {
 		commentText := fmt.Sprintf("[-:-:-]%s[::d] (%s) %d replies", commentItem.By, humanize.Time(tm), len(commentItem.Kids))
 		commentNode := tview.NewTreeNode(commentText)
 		commentNode.SetReference(commentItem)
+
 		for _, kidID := range commentItem.Kids {
-			kid, _ := app.api.GetItem(kidID)
+			kid, err := app.api.GetItem(kidID)
+			if err != nil {
+				log.Print(err)
+			}
 			cNode := addChildNode(kid)
 			if len(kid.Kids) > 0 {
 				cNode.SetColor(tcell.ColorMediumSeaGreen)
@@ -46,41 +50,65 @@ func createChildrenCommentNodes(rootCommentItem *hnapi.Item) *tview.TreeNode {
 func Comments(nextSlide func()) (title string, content tview.Primitive) {
 	treeNextSlide = nextSlide
 
-	placeNode := tview.NewTreeNode("Loading...")
+	app.gui.commentTitle = tview.NewTextView()
+	app.gui.commentTitle.SetBorderPadding(1,0,0,0)
 
-	app.gui.commentsContent = tview.NewTextView().
-		SetDynamicColors(true).
+	app.gui.commentsContent = tview.NewTextView()
+	app.gui.commentsContent.SetDynamicColors(true).
 		SetScrollable(true).
-		SetWrap(true)
+		SetWrap(true).
+		SetWordWrap(true).
+		SetBorderPadding(2, 0, 5, 5)
 
-	app.gui.comments = tview.NewTreeView()
-	app.gui.comments.SetRoot(placeNode).
-		SetBorder(true).
-		SetTitle("Comments")
-	app.gui.comments.SetSelectedFunc(func(n *tview.TreeNode) {
-		item := n.GetReference().(*hnapi.Item)
-		app.gui.commentsContent.
-			SetText(html.UnescapeString(item.Text))
-	})
+	placeholderNode := tview.NewTreeNode("")
+	app.gui.comments = tview.NewTreeView().
+		SetGraphics(true).
+		// SetChangedFunc(func(n *tview.TreeNode) {
+		// 	app.gui.commentsContent.Clear()
+		// 	item := n.GetReference().(*hnapi.Item)
+		// 	str := html.UnescapeString(item.Text)
+		// 	if _, err := fmt.Fprint(app.gui.commentsContent, str); err != nil {
+		// 		log.Print(err)
+		// 	}
+		// 	for idx, child := range n.GetChildren() {
+		// 		item := child.GetReference().(*hnapi.Item)
+		// 		str := strip.StripTags(html.UnescapeString(item.Text))
+		// 		for i := 0; i < idx; i++ {
+		// 			if _, err := fmt.Fprint(app.gui.commentsContent, " "); err != nil {
+		// 				log.Print(err)
+		// 			}
+		// 		}
+		// 		if _, err := fmt.Fprintln(app.gui.commentsContent, str); err != nil {
+		// 			log.Print(err)
+		// 		}
+		// 	}
+		// }).
+		SetChangedFunc(func(n *tview.TreeNode) {
+			item := n.GetReference().(*hnapi.Item)
+			var sb strings.Builder
+			if _, err := fmt.Fprintf(&sb, "[-:orange:]%s [-:-:d]wrote:[-:-:-]\n%s", item.By, item.Text); err != nil {
+				log.Print(err)
+			}
+			if _, err := app.gui.commentsContent.Write([]byte(sb.String())); err != nil {
+				log.Print(err)
+			}
+		}).
+		SetRoot(placeholderNode)
 
 	return "Comments", tview.NewFlex().
+		SetDirection(tview.FlexRow).
+		AddItem(app.gui.commentTitle, 1, 1, false).
 		AddItem(app.gui.comments, 0, 2, true).
-		AddItem(app.gui.commentsContent, 0, 5, false)
+		AddItem(app.gui.commentsContent, 0, 5, true)
 }
 
-func germinate(storyItem hnapi.Item) {
-	if _, err := fmt.Fprint(app.gui.console, "Loading comments..."); err != nil {
-		log.Print(err)
-	}
-
+func (gui *GUI) germinate(storyItem hnapi.Item) {
+	gui.console.SetText("Loading comments...")
 	// var add func(targets *tview.TreeNode) *tview.TreeNode
 	add := func(target *tview.TreeNode) *tview.TreeNode {
 		for _, rootCommentID := range storyItem.Kids {
 			rootComment, err := app.api.GetItem(rootCommentID)
 			if err != nil {
-				log.Print(err)
-			}
-			if _, err := fmt.Fprintf(app.gui.console, "Created node for %#v... ", rootComment); err != nil {
 				log.Print(err)
 			}
 			rootCommentNode := createChildrenCommentNodes(rootComment)
@@ -98,8 +126,9 @@ func germinate(storyItem hnapi.Item) {
 
 	storyNode := *tview.NewTreeNode(storyItem.Text)
 	root := add(&storyNode)
-	app.gui.comments = tview.NewTreeView().
-		SetRoot(root).
-		SetCurrentNode(root)
-	app.gui.console.Clear()
+	gui.commentTitle.SetText(storyItem.Title)
+	gui.comments.SetRoot(root).
+		SetCurrentNode(root).
+		SetTopLevel(1)
+	app.gui.console.SetText("Comments loaded...")
 }
