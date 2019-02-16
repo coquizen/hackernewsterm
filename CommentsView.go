@@ -130,5 +130,6 @@ func (gui *GUI) germinate(storyItem hnapi.Item) {
 	gui.comments.SetRoot(root).
 		SetCurrentNode(root).
 		SetTopLevel(1)
-	app.gui.console.SetText("Comments loaded...")
-}
+
+	gui.console.Clear()
+	}
