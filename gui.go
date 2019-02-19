@@ -1,6 +1,7 @@
 package main
 
 import (
+	"container/ring"
 	"fmt"
 	"log"
 	"net/url"
@@ -32,7 +33,7 @@ type GUI struct {
 	comments        *tview.TreeView
 	commentsContent *tview.TextView
 	console         *tview.TextView
-	pages           *tview.Pages
+	focus    		*ring.Ring
 }
 
 // Create establishes the ui and widget parameters
@@ -43,6 +44,14 @@ func (gui *GUI) Create() {
 		PostType: "top",
 		NumPosts: 50,
 	}
+
+	gui.focus = ring.New(3)
+	gui.focus.Value = gui.list
+	gui.focus.Next()
+	gui.focus.Value = gui.content
+	gui.focus.Next()
+	gui.focus.Value = gui.comments
+	gui.focus.Next()
 
 	gui.topPane()
 	gui.bottomPane()
@@ -94,10 +103,17 @@ func (gui *GUI) bottomPane() {
 	}
 }
 
+/* TODO: 1. Change from using slide to having discrete panes for each panel.
+         2. Write getPrimitive method
+*/
 func (gui *GUI) keyHandler(key *tcell.EventKey) *tcell.EventKey {
 	switch key.Key() {
 	case tcell.KeyEsc:
 		app.main.Stop()
+	case tcell.KeyTab:
+		gui.focus.Next()
+		//currentFocus := getPrimitive(gui.focus)
+		app.main.SetFocus(gui.focus)
 	case tcell.KeyRune:
 		if key.Rune() == 'j' {
 			app.main.SetFocus(app.gui.content)
