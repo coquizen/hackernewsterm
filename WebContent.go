@@ -1,12 +1,14 @@
 package main
 
 import (
+	"github.com/go-shiori/go-readability"
 	"log"
-	"os/exec"
 
+	nurl "net/url"
 	"github.com/caninodev/hackernewsterm/hnapi"
 	"github.com/gdamore/tcell"
 	"github.com/rivo/tview"
+	"time"
 )
 
 // WebContent is a page that will render the selected item's url
@@ -28,18 +30,21 @@ func WebContent(nextSlide func()) (title string, content tview.Primitive) {
 func (gui *GUI) parseHTML(item hnapi.Item) {
 	gui.content.Clear()
 	gui.console.SetText("Loading page...")
-	webCMD := exec.Command("w3m", "-dump", "-graph", "-X", "-cols", string(numCols), item.URL)
+
+	gui.console.SetText("Loading page...")
 
 	app.main.QueueUpdateDraw(func() {
-		stdOutput, err := webCMD.CombinedOutput()
-		if err != nil {
+		if parsedURL, err := nurl.Parse(item.URL); err != nil {
 			log.Print(err)
-		}
-
-		if _, err = gui.content.Write(stdOutput); err != nil {
-			log.Print(err)
-		}
-	})
-
-	gui.console.SetText("Page loaded.")
+			gui.console.SetText("URL parsing error!")
+		} else {
+			article, _ := readability.FromURL(parsedURL, 7*time.Second)
+			gui.content.Write([]byte(article.Content))
+			gui.console.SetText("Page successfully loaded.")
+			go func() {
+				time.Sleep(2 * time.Second)
+				gui.console.SetText("")
+			}()
+			}
+		})
 }
