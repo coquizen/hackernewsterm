@@ -10,6 +10,7 @@ import (
 	"github.com/dustin/go-humanize"
 	"github.com/gdamore/tcell"
 	"github.com/rivo/tview"
+	"github.com/grokify/html-strip-tags-go"
 )
 
 var (
@@ -86,12 +87,15 @@ func Comments(nextSlide func()) (title string, content tview.Primitive) {
 		SetChangedFunc(func(n *tview.TreeNode) {
 			item := n.GetReference().(*hnapi.Item)
 			var sb strings.Builder
-			if _, err := fmt.Fprintf(&sb, "[-:orange:]%s [-:-:d]wrote:[-:-:-]\n%s", item.By, item.Text); err != nil {
-				log.Print(err)
-			}
-			if _, err := app.gui.commentsContent.Write([]byte(sb.String())); err != nil {
-				log.Print(err)
-			}
+			app.main.QueueUpdateDraw(func() {
+				if _, err := fmt.Fprintf(&sb, "[-:orange:]%s [-:-:d]wrote:[-:-:-]\n%s", item.By, item.Text); err != nil {
+					log.Print(err)
+				}
+				// if _, err := app.gui.commentsContent.Write([]byte(sb.String())); err != nil {
+				//	log.Print(err)
+				// }
+				app.gui.commentsContent.SetText(strip.StripTags(sb.String()))
+			})
 		}).
 		SetRoot(placeholderNode)
 
@@ -132,4 +136,4 @@ func (gui *GUI) germinate(storyItem hnapi.Item) {
 		SetTopLevel(1)
 
 	gui.console.Clear()
-	}
+}

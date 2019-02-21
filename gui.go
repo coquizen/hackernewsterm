@@ -66,7 +66,8 @@ func (gui *GUI) Create() {
 func (gui *GUI) topPane() {
 	gui.list = tview.NewList()
 	gui.list.ShowSecondaryText(true).
-		SetChangedFunc(gui.updateDisplay)
+		SetChangedFunc(gui.updateDisplay).
+		SetBorder(true)
 }
 
 func (gui *GUI) bottomPane() {
@@ -77,11 +78,6 @@ func (gui *GUI) bottomPane() {
 	gui.pages = tview.NewPages()
 
 	currentSlide := 0
-
-	// previousSlide := func() {
-	// 	currentSlide = (currentSlide - 1 + len(slides)) % len(slides)
-	// 	gui.pages.SwitchToPage(strconv.Itoa(currentSlide))
-	// }
 
 	nextSlide = func() {
 		currentSlide = (currentSlide + 1) % len(slides)
@@ -98,14 +94,24 @@ func (gui *GUI) keyHandler(key *tcell.EventKey) *tcell.EventKey {
 	switch key.Key() {
 	case tcell.KeyEsc:
 		app.main.Stop()
+	case tcell.KeyTab:
+		if gui.list.HasFocus() {
+			app.main.SetFocus(gui.pages)
+			gui.pages.SetBorder(true)
+			gui.list.SetBorder(false)
+		} else {
+			app.main.SetFocus(gui.list)
+			gui.list.SetBorder(true)
+			gui.pages.SetBorder(false)
+		}
 	case tcell.KeyRune:
-		if key.Rune() == 'j' {
+		if key.Rune() == 'J' {
 			app.main.SetFocus(app.gui.content)
 			x, y := gui.content.GetScrollOffset()
 			gui.content.ScrollTo(x+1, y)
 			app.main.SetFocus(app.gui.list)
 		}
-		if key.Rune() == 'k' {
+		if key.Rune() == 'K' {
 			currentFocus := app.main.GetFocus()
 			app.main.SetFocus(app.gui.content)
 			x, y := app.gui.content.GetScrollOffset()
@@ -121,17 +127,6 @@ func (gui *GUI) keyHandler(key *tcell.EventKey) *tcell.EventKey {
 			_, err := fmt.Fprint(gui.console, item.Text)
 			if err != nil {
 				log.Print(err)
-			}
-		}
-		if key.Rune() == 'F' {
-			if gui.list.HasFocus() {
-				app.main.SetFocus(gui.pages)
-				gui.pages.SetBorder(true)
-				gui.list.SetBorder(false)
-			} else {
-				app.main.SetFocus(gui.list)
-				gui.list.SetBorder(true)
-				gui.pages.SetBorder(false)
 			}
 		}
 	}
