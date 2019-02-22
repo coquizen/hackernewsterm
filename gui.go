@@ -151,6 +151,8 @@ func (gui *GUI) getPosts(request *hnapi.Request) {
 }
 
 func (gui *GUI) updateDisplay(index int, _ string, _ string, _ rune) {
+	gui.content.Clear()
+	gui.commentTitle.Clear()
 	_, _, numCols, _ = gui.content.GetInnerRect()
 
 	go func(index int) {
