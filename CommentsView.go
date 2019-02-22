@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"html"
 	"log"
 	"strings"
 	"time"
@@ -9,8 +10,8 @@ import (
 	"github.com/caninodev/hackernewsterm/hnapi"
 	"github.com/dustin/go-humanize"
 	"github.com/gdamore/tcell"
-	"github.com/rivo/tview"
 	"github.com/grokify/html-strip-tags-go"
+	"github.com/rivo/tview"
 )
 
 var (
@@ -52,7 +53,7 @@ func Comments(nextSlide func()) (title string, content tview.Primitive) {
 	treeNextSlide = nextSlide
 
 	app.gui.commentTitle = tview.NewTextView()
-	app.gui.commentTitle.SetBorderPadding(1,0,0,0)
+	app.gui.commentTitle.SetBorderPadding(1, 0, 0, 0)
 
 	app.gui.commentsContent = tview.NewTextView()
 	app.gui.commentsContent.SetDynamicColors(true).
@@ -86,9 +87,10 @@ func Comments(nextSlide func()) (title string, content tview.Primitive) {
 		// }).
 		SetChangedFunc(func(n *tview.TreeNode) {
 			item := n.GetReference().(*hnapi.Item)
+			unescapedItemText := html.UnescapeString(item.Text)
 			var sb strings.Builder
 			app.main.QueueUpdateDraw(func() {
-				if _, err := fmt.Fprintf(&sb, "[-:orange:]%s [-:-:d]wrote:[-:-:-]\n%s", item.By, item.Text); err != nil {
+				if _, err := fmt.Fprintf(&sb, "[-:hnColorOrange:]%s [-:-:d] wrote:[-:-:-]\n%s", item.By, unescapedItemText); err != nil {
 					log.Print(err)
 				}
 				// if _, err := app.gui.commentsContent.Write([]byte(sb.String())); err != nil {
