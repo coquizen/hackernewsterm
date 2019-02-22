@@ -1,14 +1,16 @@
 package main
 
 import (
-	"github.com/go-shiori/go-readability"
 	"log"
 
+	"github.com/go-shiori/go-readability"
+
 	nurl "net/url"
+	"time"
+
 	"github.com/caninodev/hackernewsterm/hnapi"
 	"github.com/gdamore/tcell"
 	"github.com/rivo/tview"
-	"time"
 )
 
 // WebContent is a page that will render the selected item's url
@@ -28,11 +30,7 @@ func WebContent(nextSlide func()) (title string, content tview.Primitive) {
 }
 
 func (gui *GUI) parseHTML(item hnapi.Item) {
-	gui.content.Clear()
 	gui.console.SetText("Loading page...")
-
-	gui.console.SetText("Loading page...")
-
 	app.main.QueueUpdateDraw(func() {
 		if parsedURL, err := nurl.Parse(item.URL); err != nil {
 			log.Print(err)
@@ -45,6 +43,6 @@ func (gui *GUI) parseHTML(item hnapi.Item) {
 				time.Sleep(2 * time.Second)
 				gui.console.SetText("")
 			}()
-			}
-		})
+		}
+	})
 }
