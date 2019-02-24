@@ -65,26 +65,6 @@ func Comments(nextSlide func()) (title string, content tview.Primitive) {
 	placeholderNode := tview.NewTreeNode("")
 	app.gui.comments = tview.NewTreeView().
 		SetGraphics(true).
-		// SetChangedFunc(func(n *tview.TreeNode) {
-		// 	app.gui.commentsContent.Clear()
-		// 	item := n.GetReference().(*hnapi.Item)
-		// 	str := html.UnescapeString(item.Text)
-		// 	if _, err := fmt.Fprint(app.gui.commentsContent, str); err != nil {
-		// 		log.Print(err)
-		// 	}
-		// 	for idx, child := range n.GetChildren() {
-		// 		item := child.GetReference().(*hnapi.Item)
-		// 		str := strip.StripTags(html.UnescapeString(item.Text))
-		// 		for i := 0; i < idx; i++ {
-		// 			if _, err := fmt.Fprint(app.gui.commentsContent, " "); err != nil {
-		// 				log.Print(err)
-		// 			}
-		// 		}
-		// 		if _, err := fmt.Fprintln(app.gui.commentsContent, str); err != nil {
-		// 			log.Print(err)
-		// 		}
-		// 	}
-		// }).
 		SetChangedFunc(func(n *tview.TreeNode) {
 			item := n.GetReference().(*hnapi.Item)
 			unescapedItemText := html.UnescapeString(item.Text)
@@ -93,9 +73,6 @@ func Comments(nextSlide func()) (title string, content tview.Primitive) {
 				if _, err := fmt.Fprintf(&sb, "[-:hnColorOrange:]%s [-:-:d] wrote:[-:-:-]\n%s", item.By, unescapedItemText); err != nil {
 					log.Print(err)
 				}
-				// if _, err := app.gui.commentsContent.Write([]byte(sb.String())); err != nil {
-				//	log.Print(err)
-				// }
 				app.gui.commentsContent.SetText(strip.StripTags(sb.String()))
 			})
 		}).
@@ -110,7 +87,6 @@ func Comments(nextSlide func()) (title string, content tview.Primitive) {
 
 func (gui *GUI) germinate(storyItem hnapi.Item) {
 	gui.console.SetText("Loading comments...")
-	// var add func(targets *tview.TreeNode) *tview.TreeNode
 	add := func(target *tview.TreeNode) *tview.TreeNode {
 		for _, rootCommentID := range storyItem.Kids {
 			rootComment, err := app.api.GetItem(rootCommentID)
