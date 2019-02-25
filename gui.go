@@ -94,40 +94,20 @@ func (gui *GUI) keyHandler(key *tcell.EventKey) *tcell.EventKey {
 	switch key.Key() {
 	case tcell.KeyEsc:
 		app.main.Stop()
-	case tcell.KeyTab:
-		if gui.list.HasFocus() {
-			app.main.SetFocus(gui.pages)
-			gui.pages.SetBorder(true)
-			gui.list.SetBorder(false)
-		} else {
-			app.main.SetFocus(gui.list)
-			gui.list.SetBorder(true)
-			gui.pages.SetBorder(false)
-		}
 	case tcell.KeyRune:
-		if key.Rune() == 'J' {
-			app.main.SetFocus(app.gui.content)
-			x, y := gui.content.GetScrollOffset()
-			gui.content.ScrollTo(x+1, y)
-			app.main.SetFocus(app.gui.list)
-		}
-		if key.Rune() == 'K' {
-			currentFocus := app.main.GetFocus()
-			app.main.SetFocus(app.gui.content)
-			x, y := app.gui.content.GetScrollOffset()
-			gui.content.ScrollTo(x-1, y)
-			app.main.SetFocus(currentFocus)
-		}
-		if key.Rune() == 'C' {
-			nextSlide()
-		}
-		if key.Rune() == 'I' {
-			n := gui.comments.GetCurrentNode()
-			item := n.GetReference().(*hnapi.Item)
-			_, err := fmt.Fprint(gui.console, item.Text)
-			if err != nil {
-				log.Print(err)
+		if key.Rune() == 'F' {
+			if gui.list.HasFocus() {
+				app.main.SetFocus(gui.pages)
+				gui.pages.SetBorder(true)
+				gui.list.SetBorder(false)
+			} else {
+				app.main.SetFocus(gui.list)
+				gui.list.SetBorder(true)
+				gui.pages.SetBorder(false)
 			}
+		}
+		if key.Rune() == 'S' {
+			nextSlide()
 		}
 	}
 	return key
