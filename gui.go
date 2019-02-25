@@ -32,6 +32,7 @@ type GUI struct {
 	comments        *tview.TreeView
 	commentsContent *tview.TextView
 	console         *tview.TextView
+	infoLine		*tview.TextView
 	pages           *tview.Pages
 }
 
@@ -51,6 +52,11 @@ func (gui *GUI) Create() {
 		gui.getPosts(defaultRequest)
 	}(defaultRequest)
 
+	gui.infoLine = tview.NewTextView().
+		SetWrap(false).SetText("").
+		SetDynamicColors(true).
+		SetText(gui.renderInfoLine())
+
 	gui.console = tview.NewTextView()
 	gui.console.
 		SetDynamicColors(true).
@@ -60,6 +66,7 @@ func (gui *GUI) Create() {
 		SetDirection(tview.FlexRow).
 		AddItem(gui.list, 0, 2, true).
 		AddItem(gui.pages, 0, 5, true).
+		AddItem(gui.infoLine, 1, 1, false).
 		AddItem(gui.console, 1, 1, false)
 }
 
@@ -148,6 +155,11 @@ func (gui *GUI) renderListItem(item hnapi.Item, idx rune) {
 	app.main.QueueUpdateDraw(func() {
 		gui.list.AddItem(*m, *n, idx, nil)
 	})
+}
+
+func (gui *GUI) renderInfoLine() string {
+	str := "[yellow:-:-]F[-:-:-]ocus Switch --- [yellow:-:-]C[-:-:-]hange View (Comment/Web Content) --- [yellow:-:-]ESC[-:-:-] Quit Application"
+	return str
 }
 
 func formatMainText(item *hnapi.Item) *string {
