@@ -32,7 +32,7 @@ type GUI struct {
 	comments        *tview.TreeView
 	commentsContent *tview.TextView
 	console         *tview.TextView
-	infoLine		*tview.TextView
+	statusLine      *tview.TextView
 	pages           *tview.Pages
 }
 
@@ -52,21 +52,21 @@ func (gui *GUI) Create() {
 		gui.getPosts(defaultRequest)
 	}(defaultRequest)
 
-	gui.infoLine = tview.NewTextView().
+	gui.statusLine = tview.NewTextView().
 		SetWrap(false).SetText("").
-		SetDynamicColors(true).
-		SetText(gui.renderInfoLine())
+		SetDynamicColors(true)
 
 	gui.console = tview.NewTextView()
 	gui.console.
 		SetDynamicColors(true).
 		SetBackgroundColor(hnColorOrange)
+	gui.helpStatus()
 
 	gui.layout = tview.NewFlex().
 		SetDirection(tview.FlexRow).
 		AddItem(gui.list, 0, 2, true).
 		AddItem(gui.pages, 0, 5, true).
-		AddItem(gui.infoLine, 1, 1, false).
+		AddItem(gui.statusLine, 1, 1, false).
 		AddItem(gui.console, 1, 1, false)
 }
 
@@ -143,7 +143,7 @@ func (gui *GUI) updateDisplay(index int, _ string, _ string, _ rune) {
 	_, _, numCols, _ = gui.content.GetInnerRect()
 
 	go func(index int) {
-		gui.parseHTML(cache[index])
+		gui.parseWebContent(cache[index])
 		gui.germinate(cache[index])
 	}(index)
 
@@ -157,9 +157,17 @@ func (gui *GUI) renderListItem(item hnapi.Item, idx rune) {
 	})
 }
 
-func (gui *GUI) renderInfoLine() string {
-	str := "[yellow:-:-]F[-:-:-]ocus Switch --- [yellow:-:-]C[-:-:-]hange View (Comment/Web Content) --- [yellow:-:-]ESC[-:-:-] Quit Application"
-	return str
+func (gui *GUI) errorStatus(str string) {
+	gui.console.SetText(formatErrorText(str))
+}
+
+func (gui *GUI) helpStatus() {
+	str := `F[-:-:-]ocus Switch --- [yellow:-:-]C[-:-:-]hange View (Comment/Web Content) --- [yellow:-:-]ESC[-:-:-] Quit Application`
+	gui.console.SetText(str)
+}
+
+func (gui *GUI) infoStatus(str string) {
+	gui.console.SetText(str)
 }
 
 func formatMainText(item *hnapi.Item) *string {
@@ -187,4 +195,9 @@ func formatSubText(item *hnapi.Item) *string {
 
 	str := fmt.Sprintf("[-::d] %s %d points,[-:-:-] %d [::d]comments, by:[green::-] %s [-:-:-]", scoreColor, item.Score, item.Descendants, item.By)
 	return &str
+}
+
+func formatErrorText(str string) string {
+	fmtStr := fmt.Sprintf("[-:red:-]%s", str)
+	return fmtStr
 }

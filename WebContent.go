@@ -1,14 +1,14 @@
 package main
 
 import (
+	"fmt"
 	"log"
-
-	"github.com/go-shiori/go-readability"
-
-	nurl "net/url"
 	"time"
 
+	nurl "net/url"
+
 	"github.com/caninodev/hackernewsterm/hnapi"
+	"github.com/go-shiori/go-readability"
 	"github.com/rivo/tview"
 )
 
@@ -22,16 +22,21 @@ func WebContent(nextSlide func()) (title string, content tview.Primitive) {
 	return "WebContent", app.gui.content
 }
 
-func (gui *GUI) parseHTML(item hnapi.Item) {
+func (gui *GUI) parseWebContent(item hnapi.Item) {
 	gui.console.SetText("Loading page...")
 	app.main.QueueUpdateDraw(func() {
 		if parsedURL, err := nurl.Parse(item.URL); err != nil {
 			log.Print(err)
 			gui.console.SetText("URL parsing error!")
 		} else {
-			article, _ := readability.FromURL(parsedURL, 7*time.Second)
-			gui.content.Write([]byte(article.Content))
-			gui.console.SetText("Page successfully loaded.")
+			article, err := readability.FromURL(parsedURL.String(), 7*time.Second)
+			if err != nil {
+				log.Print(err)
+				consoleStr := fmt.Sprintf("Content parsing error: %s", err)
+				gui.errorStatus(consoleStr)
+			}
+			gui.content.Write([]byte(article.TextContent))
+			gui.infoStatus("Page successfully loaded.")
 		}
 	})
 }
