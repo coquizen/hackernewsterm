@@ -1,36 +1,31 @@
 package main
 
 import (
-	"github.com/caninodev/hackernewsterm/hnapi"
-	"github.com/rivo/tview"
+	"context"
+	"log"
+
+	"github.com/CaninoDev/hackernewsterm/internal/hackernews"
+	"github.com/CaninoDev/hackernewsterm/internal/ui"
 )
 
-type myApp struct {
-	main *tview.Application
-	api  *hnapi.HNdb
-	//pages *tview.Pages
-	gui *GUI
-}
+// type App struct {
+// 	ctx  *context.Context
+// 	UI   *ui.UI
+// 	HNdb *api.HackerNewsFB
+// }
 
-var app *myApp
-
-func (app *myApp) initialize() {
-	app.main = tview.NewApplication()
-	app.api = hnapi.New()
-	app.gui = &GUI{}
-
-	app.gui.Create()
-
-	app.main.SetInputCapture(app.gui.keyHandler)
-
-}
-
-// and finally, putting it all together
 func main() {
-	app = new(myApp)
-	app.initialize()
-	// Start the application.
-	if err := app.main.SetRoot(app.gui.layout, true).Run(); err != nil {
-		panic(err)
+	ctx := context.Background()
+	handler := hackernews.NewHandlerWithDefaultConfig(ctx)
+        // var items []hackernews.Item
+
+// 	for i := 0; i < 10; i++ {
+// 		item := <-handler.Subscribe(hackernews.NewStories)
+//                 items = append(items, item)
+// 		log.Print(item.Title())
+// 
+// 	}
+	if err := ui.InitUI(ctx, *handler); err != nil {
+		log.Fatalf("error executing UI: %v", err)
 	}
 }
