@@ -2,10 +2,9 @@ package main
 
 import (
 	"context"
-	"log"
-
 	"github.com/CaninoDev/hackernewsterm/internal/hackernews"
 	"github.com/CaninoDev/hackernewsterm/internal/ui"
+	"log"
 )
 
 // type App struct {
@@ -16,8 +15,9 @@ import (
 
 func main() {
 	ctx := context.Background()
-	handler := hackernews.NewHandlerWithDefaultConfig(ctx)
-        // var items []hackernews.Item
+	handler := hackernews.NewFirebaseClientWithDefaultConfig(ctx)
+        //var items []hackernews.Item
+
 
 // 	for i := 0; i < 10; i++ {
 // 		item := <-handler.Subscribe(hackernews.NewStories)
@@ -28,4 +28,6 @@ func main() {
 	if err := ui.InitUI(ctx, *handler); err != nil {
 		log.Fatalf("error executing UI: %v", err)
 	}
+
+
 }

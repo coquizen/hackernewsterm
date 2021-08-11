@@ -23,9 +23,11 @@ type Service interface {
 
 type ui struct {
 	*cview.Application
-	firebase hackernews.Firebase
+	termWidth int
+	termHeight int
 	cfg uiConfig
 	ctx context.Context
+	handler hackernews.FirebaseClient
 }
 
 var (
@@ -42,21 +44,27 @@ var (
 // called to advance the main panel to the next view.
 type Slide func(nextSlide func()) (title string, info string, content cview.Primitive)
 
-func InitUI(ctx context.Context, handler hackernews.Firebase) error {
+func InitUI(ctx context.Context, handler hackernews.FirebaseClient) error {
 
 	app = cview.NewApplication()
 
-	app.EnableMouse(config.MouseEnable)
 
+	tui := &ui{
+		app, 143,37, *config, ctx, handler,
+	}
+
+	tui.SetAfterResizeFunc(func(width, height int) {
+		tui.termWidth = width
+		tui.termHeight = height
+	})
+
+	tui.EnableMouse(config.MouseEnable)
+	// tui.SetInputCapture(func(event *tcell.EventKey) tcell.Event)
 	// app.SetAfterResizeFunc(handleResize)
 	// app.SetMouseCapture(handleMouse)
 	// app.SetInputCapture(handleInput)
 	app.SetBeforeFocusFunc(handleBeforeFocus)
-
-	tui := &ui{
-		app, handler, *config, ctx,
-	}
-	tui.ListView()
+	tui.Panels()
 	if err := tui.Run(); err != nil {
 		log.Fatalf("error initializing tui")
 	}
